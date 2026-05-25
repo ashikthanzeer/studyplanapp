@@ -179,9 +179,9 @@ export default function TaskList({ onStartFocus }: TaskListProps) {
 
       {/* Add Task Modal Backdrop */}
       {isAddModalOpen && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', padding: '28px', animation: 'fadeIn 0.3s ease' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '18px', fontWeight: '700' }}>Create a New Study Task</h3>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Create a New Study Task</h3>
             <TaskForm onCreated={() => { setIsAddModalOpen(false); loadTasks(); }} onCancel={() => setIsAddModalOpen(false)} />
           </div>
         </div>
@@ -189,9 +189,9 @@ export default function TaskList({ onStartFocus }: TaskListProps) {
 
       {/* Edit Task Modal Backdrop */}
       {taskToEdit && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', padding: '28px', animation: 'fadeIn 0.3s ease' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '18px', fontWeight: '700' }}>Edit Task Details</h3>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Edit Task Details</h3>
             <TaskForm taskToEdit={taskToEdit} onCreated={() => { setTaskToEdit(null); loadTasks(); }} onCancel={() => setTaskToEdit(null)} />
           </div>
         </div>

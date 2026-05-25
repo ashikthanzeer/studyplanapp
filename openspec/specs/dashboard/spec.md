@@ -47,6 +47,10 @@ The system SHALL show today's study statistics including sessions completed, tot
 - **WHEN** user views dashboard
 - **THEN** system displays study streak indicator showing the dynamically calculated number of consecutive active focus days (e.g., "7 Days Active")
 
+#### Scenario: View daily and weekly study hours
+- **WHEN** the user views the dashboard
+- **THEN** the system SHALL display the total focus hours completed today and during the current week (e.g., "Today: 2.5 hrs", "This Week: 12.0 hrs")
+
 ### Requirement: Dashboard includes quick-action buttons
 The system SHALL provide shortcuts to common actions: Start Pomodoro, Add Task, View All Tasks, View Board.
 
@@ -79,4 +83,11 @@ The system SHALL allow users to show/hide and reorder dashboard components.
 #### Scenario: Customize dashboard layout
 - **WHEN** user drags widget to new position
 - **THEN** system updates dashboard layout and saves preference
+
+### Requirement: Dashboard displays gamification rewards and badges
+The system SHALL display the user's active level rank (e.g., Bronze, Silver, Gold) and a showcase of their earned badges on the dashboard.
+
+#### Scenario: View badges and rank on dashboard
+- **WHEN** the user views the dashboard
+- **THEN** the system displays their current level rank (e.g., "Gold Rank") and a visual gallery of unlocked badges with counts for duplicates
 

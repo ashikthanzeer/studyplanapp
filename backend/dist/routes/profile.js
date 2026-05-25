@@ -12,5 +12,7 @@ router.put('/', auth_1.authenticateToken, profileController_1.updateProfile);
 router.get('/preferences', auth_1.authenticateToken, profileController_1.getPreferences);
 // PUT /api/profile/preferences
 router.put('/preferences', auth_1.authenticateToken, profileController_1.updatePreferences);
+// GET /api/profile/gamification
+router.get('/gamification', auth_1.authenticateToken, profileController_1.getGamification);
 exports.default = router;
 //# sourceMappingURL=profile.js.map

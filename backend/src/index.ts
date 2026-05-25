@@ -8,8 +8,22 @@ import subjectsRoutes from './routes/subjects';
 import tasksRoutes from './routes/tasks';
 import pomodoroRoutes from './routes/pomodoro';
 import kanbanRoutes from './routes/kanban';
+import path from 'path';
+import fs from 'fs';
 
-dotenv.config();
+const envPaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), 'backend', '.env'),
+  path.join(__dirname, '../.env'),
+  path.join(__dirname, '../../.env'),
+];
+
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+    break;
+  }
+}
 
 const app: Express = express();
 const port = process.env.PORT || 3000;

@@ -314,9 +314,9 @@ export default function KanbanBoard() {
 
       {/* Card Details/Edit Modal Backdrop */}
       {taskToEdit && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', backdropFilter: 'blur(4px)' }}>
-          <div className="glass-card" style={{ width: '100%', maxWidth: '500px', padding: '28px', animation: 'fadeIn 0.3s ease' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '18px', fontWeight: '700' }}>Modify Kanban Task</h3>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h3 style={{ fontSize: '18px', fontWeight: '700' }}>Modify Kanban Task</h3>
             <TaskForm taskToEdit={taskToEdit} onCreated={() => { setTaskToEdit(null); loadBoard(); }} onCancel={() => setTaskToEdit(null)} />
           </div>
         </div>

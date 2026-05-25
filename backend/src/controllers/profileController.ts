@@ -123,3 +123,54 @@ export async function updatePreferences(req: AuthenticatedRequest, res: Response
     res.status(500).json({ error: 'Failed to update preferences' });
   }
 }
+
+export async function getGamification(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // 1. Get streak details
+    const streakResult = await query(
+      'SELECT current_streak, max_streak, last_activity_date FROM user_streaks WHERE user_id = $1',
+      [req.user.id]
+    );
+    
+    const streak = streakResult.rows[0] || { current_streak: 0, max_streak: 0, last_activity_date: null };
+
+    // 2. Get badges details
+    const badgesResult = await query(
+      'SELECT badge_name, count, last_earned_at FROM user_badges WHERE user_id = $1 ORDER BY last_earned_at DESC',
+      [req.user.id]
+    );
+
+    const badges = badgesResult.rows;
+
+    // Calculate total badges earned (sum of all counts)
+    const totalBadgesEarned = badges.reduce((sum: number, badge: any) => sum + (parseInt(badge.count) || 1), 0);
+
+    // Calculate rank level
+    let level = 'Bronze';
+    if (totalBadgesEarned >= 20) {
+      level = 'Diamond';
+    } else if (totalBadgesEarned >= 11) {
+      level = 'Platinum';
+    } else if (totalBadgesEarned >= 6) {
+      level = 'Gold';
+    } else if (totalBadgesEarned >= 3) {
+      level = 'Silver';
+    }
+
+    res.json({
+      streak: streak.current_streak,
+      maxStreak: streak.max_streak,
+      lastActivityDate: streak.last_activity_date,
+      badges,
+      totalBadges: totalBadgesEarned,
+      level,
+    });
+  } catch (error) {
+    console.error('Error fetching gamification stats:', error);
+    res.status(500).json({ error: 'Failed to fetch gamification stats' });
+  }
+}

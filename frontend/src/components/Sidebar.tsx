@@ -1,6 +1,6 @@
 import React from 'react';
 
-type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'timer' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'subjects' | 'timer' | 'history' | 'settings';
 
 interface SidebarProps {
   currentView: ViewType;
@@ -41,6 +41,16 @@ export default function Sidebar({ currentView, onViewChange, user, onLogout }: S
           <line x1="18" y1="3" x2="18" y2="21" />
           <line x1="12" y1="3" x2="12" y2="21" />
           <line x1="6" y1="3" x2="6" y2="21" />
+        </svg>
+      )
+    },
+    {
+      id: 'subjects' as ViewType,
+      label: 'Subjects',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5v-15z" />
         </svg>
       )
     },

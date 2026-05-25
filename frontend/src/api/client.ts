@@ -69,6 +69,11 @@ export async function updatePreferences(payload: any) {
   return res.data;
 }
 
+export async function getGamification() {
+  const res = await client.get('/profile/gamification');
+  return res.data;
+}
+
 // Subjects endpoints
 export async function getSubjects() {
   const res = await client.get('/subjects');

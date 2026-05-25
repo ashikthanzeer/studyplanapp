@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { query } from '../db/connection';
 import { AuthenticatedRequest } from '../middleware/errorHandler';
+import { updateStreakAndBadges } from '../services/gamificationService';
 
 export async function createPomodoroSession(req: AuthenticatedRequest, res: Response) {
   try {
@@ -49,6 +50,11 @@ export async function completePomodoroSession(req: AuthenticatedRequest, res: Re
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Session not found' });
     }
+
+    // Evaluate and update streaks and badges
+    updateStreakAndBadges(req.user.id).catch((err) => {
+      console.error('Error triggering streak/badge update:', err);
+    });
 
     res.json({ message: 'Session completed', session: result.rows[0] });
   } catch (error) {
@@ -203,6 +209,20 @@ export async function getSessionStats(req: AuthenticatedRequest, res: Response) 
       }
     }
 
+    // Fetch focus time for Today and Current Week
+    const timeRangesResult = await query(
+      `SELECT 
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND DATE(ended_at) = CURRENT_DATE) as today_minutes,
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND ended_at >= DATE_TRUNC('week', CURRENT_DATE)) as week_minutes`,
+      [req.user.id]
+    );
+
+    const todayMinutes = parseInt(timeRangesResult.rows[0].today_minutes) || 0;
+    const weekMinutes = parseInt(timeRangesResult.rows[0].week_minutes) || 0;
+
+    const todayHours = parseFloat((todayMinutes / 60).toFixed(1));
+    const weekHours = parseFloat((weekMinutes / 60).toFixed(1));
+
     res.json({
       stats: {
         total_minutes: parseInt(stats.total_minutes) || 0,
@@ -210,6 +230,8 @@ export async function getSessionStats(req: AuthenticatedRequest, res: Response) 
         average_session_duration: stats.session_count ? Math.round(parseInt(stats.total_minutes) / stats.session_count) : 0,
         streak: currentStreak,
         by_task: perTaskResult.rows,
+        today_hours: todayHours,
+        week_hours: weekHours,
       },
     });
   } catch (error) {

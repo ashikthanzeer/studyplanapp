@@ -8,9 +8,10 @@ import KanbanBoard from './components/KanbanBoard';
 import FocusTimer from './components/FocusTimer';
 import SessionHistory from './components/SessionHistory';
 import ProfileSettings from './components/ProfileSettings';
-import { getUserProfile, getPreferences, getTasks } from './api/client';
+import SubjectsManager from './components/SubjectsManager';
+import { getUserProfile, getPreferences, getTasks, updatePreferences } from './api/client';
 
-type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'timer' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'subjects' | 'timer' | 'history' | 'settings';
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
@@ -19,7 +20,9 @@ function App() {
   
   // Navigation & Theme
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>(
+    (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  );
   
   // Deep-linking task focus
   const [selectedTaskForTimer, setSelectedTaskForTimer] = useState<any | null>(null);
@@ -32,9 +35,10 @@ function App() {
     }
   }, [token]);
 
-  // Apply theme to document element
+  // Apply theme to document element and save locally
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
   }, [theme]);
 
   async function loadUserProfile() {
@@ -46,7 +50,9 @@ function App() {
       // Load theme preference
       const prefData = await getPreferences();
       if (prefData.preferences?.theme) {
-        setTheme(prefData.preferences.theme as 'light' | 'dark');
+        const backendTheme = prefData.preferences.theme as 'light' | 'dark';
+        setTheme(backendTheme);
+        localStorage.setItem('theme', backendTheme);
       }
 
       // Check upcoming deadlines on login
@@ -101,8 +107,14 @@ function App() {
     setCurrentView('dashboard');
   }
 
-  function handleThemeChange(newTheme: 'light' | 'dark') {
+  async function handleThemeChange(newTheme: 'light' | 'dark') {
     setTheme(newTheme);
+    localStorage.setItem('theme', newTheme);
+    try {
+      await updatePreferences({ theme: newTheme });
+    } catch (e) {
+      console.error('Failed to sync theme preference with backend:', e);
+    }
   }
 
   function handleStartFocusFromCard(task: any) {
@@ -125,6 +137,8 @@ function App() {
         return <TaskList onStartFocus={handleStartFocusFromCard} />;
       case 'kanban':
         return <KanbanBoard />;
+      case 'subjects':
+        return <SubjectsManager />;
       case 'timer':
         return (
           <FocusTimer

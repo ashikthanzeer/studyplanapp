@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getTasks, updateTask, getPomodoroStats } from '../api/client';
+import { getTasks, updateTask, getPomodoroStats, getGamification } from '../api/client';
 
-type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'timer' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'subjects' | 'timer' | 'history' | 'settings';
 
 interface DashboardProps {
   onViewChange: (view: ViewType) => void;
@@ -11,10 +11,22 @@ interface DashboardProps {
 
 export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user }: DashboardProps) {
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
-  const [stats, setStats] = useState({ total_minutes: 0, session_count: 0, by_task: [] });
+  const [stats, setStats] = useState<any>({
+    total_minutes: 0,
+    session_count: 0,
+    by_task: [],
+    today_hours: 0.0,
+    week_hours: 0.0
+  });
+  const [gamification, setGamification] = useState<any>({
+    streak: 0,
+    maxStreak: 0,
+    badges: [],
+    level: 'Bronze',
+    totalBadges: 0
+  });
   const [loading, setLoading] = useState(true);
-  const [streak, setStreak] = useState(0); // Mock streak or calculated from localStorage
-  const [goalProgress, setGoalProgress] = useState(70); // Mock weekly goal progress percentage
+  const [goalProgress, setGoalProgress] = useState(70);
 
   useEffect(() => {
     loadDashboardData();
@@ -50,9 +62,14 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
       const statsData = await getPomodoroStats();
       if (statsData.stats) {
         setStats(statsData.stats);
-        if (typeof statsData.stats.streak === 'number') {
-          setStreak(statsData.stats.streak);
-        }
+      }
+
+      // Get Gamification data
+      try {
+        const gamificationData = await getGamification();
+        setGamification(gamificationData);
+      } catch (err) {
+        console.error('Failed to load gamification stats', err);
       }
     } catch (err) {
       console.error('Failed to load dashboard data', err);
@@ -85,9 +102,10 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      
       {/* Welcome Banner */}
       <div className="glass-card" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-light), rgba(255,255,255,0))', borderLeft: '5px solid var(--primary)', flexWrap: 'wrap', gap: '20px' }}>
-        <div>
+        <div style={{ flexGrow: 1, minWidth: '250px' }}>
           <h1 style={{ fontSize: '28px', margin: '0 0 8px', textAlign: 'left', fontWeight: '800' }}>
             Hey, {user?.name || 'Explorer'}! 👋
           </h1>
@@ -96,14 +114,26 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </p>
         </div>
         
-        {/* Streak Counter */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'rgba(239, 68, 68, 0.08)', padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="coral" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse-glow" style={{ animationDuration: '1.5s' }}>
-            <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
-          </svg>
-          <div style={{ textAlign: 'left' }}>
-            <div style={{ fontSize: '11px', color: 'coral', fontWeight: '700', textTransform: 'uppercase' }}>Study Streak</div>
-            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-heading)' }}>{streak} Days Active</div>
+        {/* Streak & Level badges */}
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Level Badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--primary-light)', padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+            <span style={{ fontSize: '22px' }}>🏆</span>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '11px', color: 'var(--primary)', fontWeight: '700', textTransform: 'uppercase' }}>Rank Level</div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-heading)' }}>{gamification.level}</div>
+            </div>
+          </div>
+
+          {/* Streak Counter */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'rgba(239, 68, 68, 0.08)', padding: '10px 18px', borderRadius: 'var(--radius-md)', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="coral" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="animate-pulse-glow" style={{ animationDuration: '1.5s' }}>
+              <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+            </svg>
+            <div style={{ textAlign: 'left' }}>
+              <div style={{ fontSize: '11px', color: 'coral', fontWeight: '700', textTransform: 'uppercase' }}>Streak</div>
+              <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-heading)' }}>{gamification.streak} Days</div>
+            </div>
           </div>
         </div>
       </div>
@@ -161,7 +191,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </div>
         </div>
 
-        {/* Pomodoro Quick Start Widget */}
+        {/* Focus Timer quick start */}
         <div className="glass-card widget-small widget-card" style={{ justifyContent: 'center', alignItems: 'center', textAlign: 'center', background: 'linear-gradient(to bottom, rgba(168,85,247,0.03), rgba(255,255,255,0))' }}>
           <div style={{ position: 'relative', width: '90px', height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '8px' }}>
             <svg width="90" height="90" viewBox="0 0 100 100" style={{ transform: 'rotate(-90deg)', position: 'absolute' }}>
@@ -186,7 +216,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </button>
         </div>
 
-        {/* Productivity Analytics Cards */}
+        {/* Productivity Analytics Goals */}
         <div className="glass-card widget-small widget-card" style={{ gap: '12px' }}>
           <div style={{ textAlign: 'left' }}>
             <h3 style={{ fontSize: '16px' }}>Productivity Goals</h3>
@@ -196,19 +226,19 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '8px' }}>
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: '500' }}>Study Duration Goal</span>
+                <span style={{ fontWeight: '500' }}>Weekly Focus Target</span>
                 <strong style={{ color: 'var(--primary)' }}>
-                  {Math.round((stats.total_minutes || 0) / 60)} / 10 Hours
+                  {stats.week_hours || 0} / 10 Hours
                 </strong>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(((stats.total_minutes || 0) / 600) * 100, 100)}%`, background: 'var(--primary)', borderRadius: '4px' }} />
+                <div style={{ height: '100%', width: `${Math.min(((stats.week_hours || 0) / 10) * 100, 100)}%`, background: 'var(--primary)', borderRadius: '4px' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: '500' }}>Focus Sessions Target</span>
+                <span style={{ fontWeight: '500' }}>Completed Sessions</span>
                 <strong style={{ color: 'var(--accent)' }}>
                   {stats.session_count || 0} / 24 Sessions
                 </strong>
@@ -220,39 +250,113 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </div>
         </div>
 
-        {/* Total Time Tracked Card */}
-        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--accent-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--accent)', gap: '10px' }}>
+        {/* Today's Focus Hours Card */}
+        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--success-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--success)', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--accent)', textTransform: 'uppercase' }}>Focus Duration</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--success)', textTransform: 'uppercase' }}>Focus Today</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
               <polyline points="12 6 12 12 16 14" />
             </svg>
           </div>
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-heading)' }}>
-              {stats.total_minutes || 0}
+              {stats.today_hours || 0.0} hrs
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>total minutes focus time logged</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>focused time completed today</div>
           </div>
         </div>
 
-        {/* Sessions Completed Card */}
+        {/* Weekly Focus Hours Card */}
         <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--primary-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--primary)', gap: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '13px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase' }}>Sessions</span>
+            <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase' }}>Focus This Week</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="3" y1="10" x2="21" y2="10" />
             </svg>
           </div>
           <div style={{ textAlign: 'left' }}>
             <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-heading)' }}>
-              {stats.session_count || 0}
+              {stats.week_hours || 0.0} hrs
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>completed Pomodoro sessions</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>focused time completed this week</div>
           </div>
         </div>
 
+      </div>
+
+      {/* Badges Gallery Widget */}
+      <div className="glass-card" style={{ padding: '28px', textAlign: 'left', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '800', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <span>🏆</span> Earned Badges & Trophies
+          <span className="badge" style={{ backgroundColor: 'var(--primary-light)', color: 'var(--primary)', fontSize: '11px', textTransform: 'none' }}>
+            {gamification.totalBadges} Badges Earned
+          </span>
+        </h3>
+        
+        {gamification.badges.length === 0 ? (
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
+            No badges unlocked yet. Complete focus sessions and build study streaks to earn badges!
+          </p>
+        ) : (
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+            {gamification.badges.map((badge: any, index: number) => {
+              const isStreak = badge.badge_name.includes('Streak');
+              const isHours = badge.badge_name.includes('Hour');
+              let badgeEmoji = '⭐';
+              if (isStreak) badgeEmoji = '🔥';
+              else if (isHours) badgeEmoji = '⚡';
+
+              return (
+                <div
+                  key={index}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '110px',
+                    padding: '16px 10px',
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(255,255,255,0.02)',
+                    border: '1px solid var(--border)',
+                    position: 'relative',
+                    transition: 'var(--transition-smooth)'
+                  }}
+                  title={`Earned on ${new Date(badge.last_earned_at).toLocaleDateString()}`}
+                >
+                  <div style={{ fontSize: '32px', marginBottom: '8px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
+                    {badgeEmoji}
+                  </div>
+                  
+                  <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-heading)', textAlign: 'center', wordBreak: 'break-word', display: 'block', lineHeight: '1.3' }}>
+                    {badge.badge_name}
+                  </span>
+                  
+                  {badge.count > 1 && (
+                    <span
+                      style={{
+                        position: 'absolute',
+                        top: '-8px',
+                        right: '-8px',
+                        background: 'var(--primary)',
+                        color: '#fff',
+                        fontSize: '9.5px',
+                        fontWeight: '800',
+                        padding: '2px 6px',
+                        borderRadius: '10px',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      }}
+                    >
+                      x{badge.count}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Quick Actions Shortcuts */}
@@ -269,6 +373,13 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
             <path d="M21 12V7H5v5h16zM5 12v5h16v-5H5z" />
           </svg>
           Kanban Board
+        </button>
+        <button className="btn btn-secondary" onClick={() => onViewChange('subjects')}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+            <path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5v-15z" />
+          </svg>
+          Manage Subjects
         </button>
         <button className="btn btn-secondary" onClick={() => onViewChange('history')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

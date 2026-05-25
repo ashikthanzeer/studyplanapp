@@ -15,7 +15,7 @@ interface ProfileSettingsProps {
   refreshUserData: () => void;
 }
 
-type TabType = 'profile' | 'preferences' | 'subjects';
+type TabType = 'profile' | 'preferences';
 
 export default function ProfileSettings({ onThemeChange, currentTheme, refreshUserData }: ProfileSettingsProps) {
   const [activeTab, setActiveTab] = useState<TabType>('profile');
@@ -34,11 +34,6 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [quietHoursStart, setQuietHoursStart] = useState('22:00');
   const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
-  
-  // Tab 3: Subjects State
-  const [subjects, setSubjects] = useState<any[]>([]);
-  const [newSubName, setNewSubName] = useState('');
-  const [newSubColor, setNewSubColor] = useState('#aa3bff');
 
   // Avatar Options
   const avatars = [
@@ -52,7 +47,6 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
   useEffect(() => {
     loadProfile();
     loadPreferences();
-    loadSubjects();
   }, []);
 
   async function loadProfile() {
@@ -81,15 +75,6 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
       }
     } catch (e) {
       console.error('Failed to load preferences', e);
-    }
-  }
-
-  async function loadSubjects() {
-    try {
-      const data = await getSubjects();
-      setSubjects(data.subjects || []);
-    } catch (e) {
-      console.error('Failed to load subjects', e);
     }
   }
 
@@ -138,31 +123,6 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
     }
   }
 
-  // Subject Actions
-  async function handleAddSubject(e: React.FormEvent) {
-    e.preventDefault();
-    if (!newSubName.trim()) return;
-    try {
-      const res = await createSubject({ name: newSubName, color: newSubColor });
-      setSubjects([...subjects, res.subject]);
-      setNewSubName('');
-      flashMessage('Subject added successfully!');
-    } catch (err: any) {
-      flashError(err.response?.data?.error || 'Failed to add subject.');
-    }
-  }
-
-  async function handleDeleteSubject(id: number) {
-    if (!confirm('Delete subject? Existing tasks will remain but will be unassigned.')) return;
-    try {
-      await deleteSubject(id);
-      setSubjects(subjects.filter((s) => s.id !== id));
-      flashMessage('Subject deleted successfully!');
-    } catch (err) {
-      flashError('Failed to delete subject.');
-    }
-  }
-
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       
@@ -185,7 +145,7 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
       )}
 
       {/* Tabs Layout */}
-      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '32px', alignItems: 'flex-start' }} className="dashboard-grid">
+      <div className="settings-grid">
         
         {/* Settings Tab Sidebar */}
         <div className="glass-card" style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -194,9 +154,6 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
           </div>
           <div className={`sidebar-item ${activeTab === 'preferences' ? 'active' : ''}`} style={{ padding: '10px 14px' }} onClick={() => setActiveTab('preferences')}>
             Study Preferences
-          </div>
-          <div className={`sidebar-item ${activeTab === 'subjects' ? 'active' : ''}`} style={{ padding: '10px 14px' }} onClick={() => setActiveTab('subjects')}>
-            Subject Manager
           </div>
         </div>
 
@@ -295,51 +252,7 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
             </form>
           )}
 
-          {/* TAB 3: Subject Management */}
-          {activeTab === 'subjects' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-              <h3 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', textAlign: 'left' }}>
-                Subject Manager
-              </h3>
 
-              {/* Add Subject Inline Form */}
-              <form onSubmit={handleAddSubject} style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end', background: 'rgba(120, 120, 120, 0.02)', padding: '16px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flexGrow: 1, minWidth: '180px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Subject Title</label>
-                  <input type="text" placeholder="e.g. Organic Chemistry" className="form-input" value={newSubName} onChange={(e) => setNewSubName(e.target.value)} required />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '90px' }}>
-                  <label style={{ fontSize: '12px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Color Badge</label>
-                  <input type="color" className="form-input" style={{ padding: '2px', height: '38px', cursor: 'pointer' }} value={newSubColor} onChange={(e) => setNewSubColor(e.target.value)} />
-                </div>
-
-                <button type="submit" className="btn btn-primary" style={{ paddingBlock: '10px' }}>
-                  Add Subject
-                </button>
-              </form>
-
-              {/* List of Subjects */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {subjects.length === 0 ? (
-                  <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>No subjects added yet.</p>
-                ) : (
-                  subjects.map((sub) => (
-                    <div key={sub.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 18px', background: 'var(--bg-sidebar)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: sub.color || 'var(--primary)' }} />
-                        <strong style={{ fontSize: '14px', color: 'var(--text-heading)' }}>{sub.name}</strong>
-                      </div>
-                      
-                      <button className="btn btn-secondary" style={{ padding: '4px 8px', fontSize: '11px', color: 'var(--warning)' }} onClick={() => handleDeleteSubject(sub.id)}>
-                        Remove
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
 
         </div>
 

@@ -9,13 +9,24 @@ exports.closePool = closePool;
 const pg_1 = require("pg");
 const dotenv_1 = __importDefault(require("dotenv"));
 dotenv_1.default.config();
-const pool = new pg_1.Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: parseInt(process.env.DB_PORT || '5432'),
-    database: process.env.DB_NAME || 'study_planner_dev',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'postgres',
-});
+const useConnectionString = !!process.env.DATABASE_URL;
+const poolConfig = useConnectionString
+    ? { connectionString: process.env.DATABASE_URL }
+    : {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        database: process.env.DB_NAME || 'study_planner_dev',
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+    };
+// Cloud databases (Neon, Supabase, Render) require SSL in production/remote connections
+if (process.env.NODE_ENV === 'production' ||
+    (process.env.DATABASE_URL && !process.env.DATABASE_URL.includes('localhost') && !process.env.DATABASE_URL.includes('127.0.0.1'))) {
+    poolConfig.ssl = {
+        rejectUnauthorized: false,
+    };
+}
+const pool = new pg_1.Pool(poolConfig);
 pool.on('error', (err) => {
     console.error('Unexpected error on idle client', err);
     process.exit(-1);
