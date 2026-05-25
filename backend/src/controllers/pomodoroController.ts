@@ -209,19 +209,25 @@ export async function getSessionStats(req: AuthenticatedRequest, res: Response) 
       }
     }
 
-    // Fetch focus time for Today and Current Week
+    // Fetch focus time for Today and Current Week, plus previous periods
     const timeRangesResult = await query(
       `SELECT 
         (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND DATE(ended_at) = CURRENT_DATE) as today_minutes,
-        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND ended_at >= DATE_TRUNC('week', CURRENT_DATE)) as week_minutes`,
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND DATE(ended_at) = CURRENT_DATE - INTERVAL '1 day') as previous_day_minutes,
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND ended_at >= DATE_TRUNC('week', CURRENT_DATE)) as week_minutes,
+        (SELECT COALESCE(SUM(duration_minutes), 0) FROM pomodoro_sessions WHERE user_id = $1 AND status = 'completed' AND ended_at >= (DATE_TRUNC('week', CURRENT_DATE) - INTERVAL '1 week') AND ended_at < DATE_TRUNC('week', CURRENT_DATE)) as previous_week_minutes`,
       [req.user.id]
     );
 
     const todayMinutes = parseInt(timeRangesResult.rows[0].today_minutes) || 0;
+    const previousDayMinutes = parseInt(timeRangesResult.rows[0].previous_day_minutes) || 0;
     const weekMinutes = parseInt(timeRangesResult.rows[0].week_minutes) || 0;
+    const previousWeekMinutes = parseInt(timeRangesResult.rows[0].previous_week_minutes) || 0;
 
     const todayHours = parseFloat((todayMinutes / 60).toFixed(1));
+    const previousDayHours = parseFloat((previousDayMinutes / 60).toFixed(1));
     const weekHours = parseFloat((weekMinutes / 60).toFixed(1));
+    const previousWeekHours = parseFloat((previousWeekMinutes / 60).toFixed(1));
 
     res.json({
       stats: {
@@ -231,7 +237,9 @@ export async function getSessionStats(req: AuthenticatedRequest, res: Response) 
         streak: currentStreak,
         by_task: perTaskResult.rows,
         today_hours: todayHours,
+        previous_day_hours: previousDayHours,
         week_hours: weekHours,
+        previous_week_hours: previousWeekHours,
       },
     });
   } catch (error) {

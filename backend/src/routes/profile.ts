@@ -5,6 +5,8 @@ import {
   getPreferences,
   updatePreferences,
   getGamification,
+  getGoals,
+  updateGoals,
 } from '../controllers/profileController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -24,5 +26,11 @@ router.put('/preferences', authenticateToken, updatePreferences);
 
 // GET /api/profile/gamification
 router.get('/gamification', authenticateToken, getGamification);
+
+// GET /api/profile/goals
+router.get('/goals', authenticateToken, getGoals);
+
+// PUT /api/profile/goals
+router.put('/goals', authenticateToken, updateGoals);
 
 export default router;

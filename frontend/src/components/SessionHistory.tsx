@@ -54,14 +54,21 @@ export default function SessionHistory() {
   }
 
   function buildChartData(sessionsList: any[]) {
-    // Get last 7 days
-    const last7Days = Array.from({ length: 7 }, (_, i) => {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+    // Get current week (Monday to Sunday)
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 is Sunday, 1 is Monday...
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - daysToMonday);
+    
+    const currentWeekDays = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
       return d.toISOString().split('T')[0];
-    }).reverse();
+    });
 
-    const grouped = last7Days.map((dateStr) => {
+    const grouped = currentWeekDays.map((dateStr) => {
       const date = new Date(dateStr);
       const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
       

@@ -4,7 +4,7 @@ import path from 'path';
 
 async function run() {
   try {
-    const sqlPath = path.join(__dirname, 'migration_gamification.sql');
+    const sqlPath = path.join(__dirname, 'migration_remove_kanban.sql');
     const sql = fs.readFileSync(sqlPath, 'utf8');
     console.log('Executing SQL migration script...');
     await query(sql);

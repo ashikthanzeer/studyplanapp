@@ -4,14 +4,14 @@ import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
-import KanbanBoard from './components/KanbanBoard';
+
 import FocusTimer from './components/FocusTimer';
 import SessionHistory from './components/SessionHistory';
 import ProfileSettings from './components/ProfileSettings';
 import SubjectsManager from './components/SubjectsManager';
 import { getUserProfile, getPreferences, getTasks, updatePreferences } from './api/client';
 
-type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'subjects' | 'timer' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'tasks' | 'subjects' | 'timer' | 'history' | 'settings';
 
 function App() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('auth_token'));
@@ -135,8 +135,7 @@ function App() {
         );
       case 'tasks':
         return <TaskList onStartFocus={handleStartFocusFromCard} />;
-      case 'kanban':
-        return <KanbanBoard />;
+
       case 'subjects':
         return <SubjectsManager />;
       case 'timer':

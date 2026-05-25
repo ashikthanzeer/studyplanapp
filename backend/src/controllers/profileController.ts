@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { query } from '../db/connection';
+import { query, getClient } from '../db/connection';
 import { AuthenticatedRequest } from '../middleware/errorHandler';
 
 export async function getProfile(req: AuthenticatedRequest, res: Response) {
@@ -172,5 +172,69 @@ export async function getGamification(req: AuthenticatedRequest, res: Response) 
   } catch (error) {
     console.error('Error fetching gamification stats:', error);
     res.status(500).json({ error: 'Failed to fetch gamification stats' });
+  }
+}
+
+export async function getGoals(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await query(
+      'SELECT * FROM study_goals WHERE user_id = $1 ORDER BY id ASC',
+      [req.user.id]
+    );
+
+    res.json({ goals: result.rows });
+  } catch (error) {
+    console.error('Error fetching goals:', error);
+    res.status(500).json({ error: 'Failed to fetch goals' });
+  }
+}
+
+export async function updateGoals(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { goals } = req.body;
+    
+    if (!Array.isArray(goals)) {
+      return res.status(400).json({ error: 'Goals must be an array' });
+    }
+
+    const dbClient = await getClient();
+    try {
+      await dbClient.query('BEGIN');
+      
+      for (const goal of goals) {
+        if (goal.id) {
+          await dbClient.query(
+            'UPDATE study_goals SET target_hours = $1, title = COALESCE($2, title), period = COALESCE($3, period), updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5',
+            [goal.target_hours, goal.title, goal.period, goal.id, req.user.id]
+          );
+        } else {
+          await dbClient.query(
+            'INSERT INTO study_goals (user_id, title, target_hours, period) VALUES ($1, $2, $3, $4)',
+            [req.user.id, goal.title || 'Target', goal.target_hours, goal.period || 'weekly']
+          );
+        }
+      }
+      
+      await dbClient.query('COMMIT');
+      
+      const result = await query('SELECT * FROM study_goals WHERE user_id = $1 ORDER BY id ASC', [req.user.id]);
+      res.json({ message: 'Goals updated successfully', goals: result.rows });
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      dbClient.release();
+    }
+  } catch (error) {
+    console.error('Error updating goals:', error);
+    res.status(500).json({ error: 'Failed to update goals' });
   }
 }

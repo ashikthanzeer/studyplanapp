@@ -7,7 +7,6 @@ import profileRoutes from './routes/profile';
 import subjectsRoutes from './routes/subjects';
 import tasksRoutes from './routes/tasks';
 import pomodoroRoutes from './routes/pomodoro';
-import kanbanRoutes from './routes/kanban';
 import path from 'path';
 import fs from 'fs';
 
@@ -43,7 +42,6 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/tasks', tasksRoutes);
 app.use('/api/pomodoro', pomodoroRoutes);
-app.use('/api/kanban', kanbanRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

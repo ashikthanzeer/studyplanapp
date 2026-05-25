@@ -60,26 +60,6 @@ CREATE TABLE tasks (
   FOREIGN KEY (subject_id) REFERENCES subjects(id)
 );
 
--- Kanban Columns Table
-CREATE TABLE kanban_columns (
-  id SERIAL PRIMARY KEY,
-  user_id INTEGER NOT NULL,
-  name VARCHAR(100) NOT NULL,
-  position INTEGER DEFAULT 0,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
--- Kanban Column Tasks (Junction Table)
-CREATE TABLE kanban_column_tasks (
-  id SERIAL PRIMARY KEY,
-  column_id INTEGER NOT NULL,
-  task_id INTEGER NOT NULL,
-  position INTEGER DEFAULT 0,
-  FOREIGN KEY (column_id) REFERENCES kanban_columns(id) ON DELETE CASCADE,
-  FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
-  UNIQUE(column_id, task_id)
-);
 
 -- Pomodoro Sessions Table
 CREATE TABLE pomodoro_sessions (

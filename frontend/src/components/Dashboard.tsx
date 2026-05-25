@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { getTasks, updateTask, getPomodoroStats, getGamification } from '../api/client';
+import { getTasks, updateTask, getPomodoroStats, getGamification, getGoals } from '../api/client';
 
-type ViewType = 'dashboard' | 'tasks' | 'kanban' | 'subjects' | 'timer' | 'history' | 'settings';
+type ViewType = 'dashboard' | 'tasks' | 'subjects' | 'timer' | 'history' | 'settings';
 
 interface DashboardProps {
   onViewChange: (view: ViewType) => void;
   setSelectedTaskForTimer: (task: any) => void;
   user: any;
 }
+
+const ALL_BADGES = [
+  '5-Day Streak', '10-Day Streak', '25-Day Streak', '50-Day Streak',
+  '75-Day Streak', '100-Day Streak', '150-Day Streak', '200-Day Streak',
+  '250-Day Streak', '300-Day Streak',
+  '8-Hour Daily Focus', '10-Hour Daily Focus', '12-Hour Daily Focus',
+  '14-Hour Daily Focus', '15-Hour Daily Focus'
+];
 
 export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user }: DashboardProps) {
   const [todayTasks, setTodayTasks] = useState<any[]>([]);
@@ -16,7 +24,9 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
     session_count: 0,
     by_task: [],
     today_hours: 0.0,
-    week_hours: 0.0
+    week_hours: 0.0,
+    previous_day_hours: 0.0,
+    previous_week_hours: 0.0
   });
   const [gamification, setGamification] = useState<any>({
     streak: 0,
@@ -26,7 +36,9 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
     totalBadges: 0
   });
   const [loading, setLoading] = useState(true);
-  const [goalProgress, setGoalProgress] = useState(70);
+  const [goalProgress, setGoalProgress] = useState(0);
+  const [dailyGoalHours, setDailyGoalHours] = useState(2);
+  const [weeklyGoalHours, setWeeklyGoalHours] = useState(10);
 
   useEffect(() => {
     loadDashboardData();
@@ -62,6 +74,19 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
       const statsData = await getPomodoroStats();
       if (statsData.stats) {
         setStats(statsData.stats);
+      }
+
+      // Get Goals
+      try {
+        const goalsData = await getGoals();
+        if (goalsData.goals) {
+          const daily = goalsData.goals.find((g: any) => g.period === 'daily');
+          if (daily) setDailyGoalHours(parseFloat(daily.target_hours));
+          const weekly = goalsData.goals.find((g: any) => g.period === 'weekly');
+          if (weekly) setWeeklyGoalHours(parseFloat(weekly.target_hours));
+        }
+      } catch (err) {
+        console.error('Failed to load goals', err);
       }
 
       // Get Gamification data
@@ -228,23 +253,23 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
                 <span style={{ fontWeight: '500' }}>Weekly Focus Target</span>
                 <strong style={{ color: 'var(--primary)' }}>
-                  {stats.week_hours || 0} / 10 Hours
+                  {stats.week_hours || 0} / {weeklyGoalHours} Hours
                 </strong>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(((stats.week_hours || 0) / 10) * 100, 100)}%`, background: 'var(--primary)', borderRadius: '4px' }} />
+                <div style={{ height: '100%', width: `${Math.min(((stats.week_hours || 0) / weeklyGoalHours) * 100, 100)}%`, background: 'var(--primary)', borderRadius: '4px' }} />
               </div>
             </div>
 
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '6px' }}>
-                <span style={{ fontWeight: '500' }}>Completed Sessions</span>
+                <span style={{ fontWeight: '500' }}>Daily Focus Target</span>
                 <strong style={{ color: 'var(--accent)' }}>
-                  {stats.session_count || 0} / 24 Sessions
+                  {stats.today_hours || 0} / {dailyGoalHours} Hours
                 </strong>
               </div>
               <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ height: '100%', width: `${Math.min(((stats.session_count || 0) / 24) * 100, 100)}%`, background: 'var(--accent)', borderRadius: '4px' }} />
+                <div style={{ height: '100%', width: `${Math.min(((stats.today_hours || 0) / dailyGoalHours) * 100, 100)}%`, background: 'var(--accent)', borderRadius: '4px' }} />
               </div>
             </div>
           </div>
@@ -263,7 +288,14 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
             <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-heading)' }}>
               {stats.today_hours || 0.0} hrs
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>focused time completed today</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {(() => {
+                const diff = (stats.today_hours || 0) - (stats.previous_day_hours || 0);
+                if (diff > 0) return <span style={{ color: 'var(--success)' }}>+{diff.toFixed(1)} hrs</span>;
+                if (diff < 0) return <span style={{ color: 'var(--warning)' }}>{diff.toFixed(1)} hrs</span>;
+                return 'same';
+              })()} vs yesterday
+            </div>
           </div>
         </div>
 
@@ -280,7 +312,14 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
             <div style={{ fontSize: '28px', fontWeight: '800', color: 'var(--text-heading)' }}>
               {stats.week_hours || 0.0} hrs
             </div>
-            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>focused time completed this week</div>
+            <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+              {(() => {
+                const diff = (stats.week_hours || 0) - (stats.previous_week_hours || 0);
+                if (diff > 0) return <span style={{ color: 'var(--primary)' }}>+{diff.toFixed(1)} hrs</span>;
+                if (diff < 0) return <span style={{ color: 'var(--warning)' }}>{diff.toFixed(1)} hrs</span>;
+                return 'same';
+              })()} vs last week
+            </div>
           </div>
         </div>
 
@@ -295,15 +334,12 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </span>
         </h3>
         
-        {gamification.badges.length === 0 ? (
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>
-            No badges unlocked yet. Complete focus sessions and build study streaks to earn badges!
-          </p>
-        ) : (
           <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-            {gamification.badges.map((badge: any, index: number) => {
-              const isStreak = badge.badge_name.includes('Streak');
-              const isHours = badge.badge_name.includes('Hour');
+            {ALL_BADGES.map((badgeName, index) => {
+              const userBadge = gamification.badges.find((b: any) => b.badge_name === badgeName);
+              const isEarned = !!userBadge;
+              const isStreak = badgeName.includes('Streak');
+              const isHours = badgeName.includes('Hour');
               let badgeEmoji = '⭐';
               if (isStreak) badgeEmoji = '🔥';
               else if (isHours) badgeEmoji = '⚡';
@@ -319,22 +355,29 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
                     width: '110px',
                     padding: '16px 10px',
                     borderRadius: 'var(--radius-md)',
-                    background: 'rgba(255,255,255,0.02)',
-                    border: '1px solid var(--border)',
+                    background: isEarned ? 'rgba(255,255,255,0.02)' : 'rgba(150,150,150,0.05)',
+                    border: isEarned ? '1px solid var(--border)' : '1px dashed var(--border)',
                     position: 'relative',
+                    opacity: isEarned ? 1 : 0.5,
+                    filter: isEarned ? 'none' : 'grayscale(100%)',
                     transition: 'var(--transition-smooth)'
                   }}
-                  title={`Earned on ${new Date(badge.last_earned_at).toLocaleDateString()}`}
+                  title={isEarned ? `Earned on ${new Date(userBadge.last_earned_at).toLocaleDateString()}` : 'Locked'}
                 >
+                  {!isEarned && (
+                    <div style={{ position: 'absolute', top: '8px', right: '8px', opacity: 0.7, fontSize: '12px' }}>
+                      🔒
+                    </div>
+                  )}
                   <div style={{ fontSize: '32px', marginBottom: '8px', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}>
                     {badgeEmoji}
                   </div>
                   
                   <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-heading)', textAlign: 'center', wordBreak: 'break-word', display: 'block', lineHeight: '1.3' }}>
-                    {badge.badge_name}
+                    {badgeName}
                   </span>
                   
-                  {badge.count > 1 && (
+                  {isEarned && userBadge.count > 1 && (
                     <span
                       style={{
                         position: 'absolute',
@@ -349,14 +392,13 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
                         boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                       }}
                     >
-                      x{badge.count}
+                      x{userBadge.count}
                     </span>
                   )}
                 </div>
               );
             })}
           </div>
-        )}
       </div>
 
       {/* Quick Actions Shortcuts */}
@@ -368,12 +410,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
           </svg>
           Manage Tasks
         </button>
-        <button className="btn btn-secondary" onClick={() => onViewChange('kanban')}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M21 12V7H5v5h16zM5 12v5h16v-5H5z" />
-          </svg>
-          Kanban Board
-        </button>
+
         <button className="btn btn-secondary" onClick={() => onViewChange('subjects')}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />

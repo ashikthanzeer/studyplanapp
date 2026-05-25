@@ -61,14 +61,6 @@ export async function register(
         [user.id]
       );
 
-      // Create default Kanban Columns (To Do, In Progress, Done)
-      const defaultColumns = ['To Do', 'In Progress', 'Done'];
-      for (let i = 0; i < defaultColumns.length; i++) {
-        await dbClient.query(
-          'INSERT INTO kanban_columns (user_id, name, position) VALUES ($1, $2, $3)',
-          [user.id, defaultColumns[i], i + 1]
-        );
-      }
 
       await dbClient.query('COMMIT');
 

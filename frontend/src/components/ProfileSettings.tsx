@@ -4,9 +4,8 @@ import {
   updateStudentProfile,
   getPreferences,
   updatePreferences,
-  getSubjects,
-  createSubject,
-  deleteSubject
+  getGoals,
+  updateGoals
 } from '../api/client';
 
 interface ProfileSettingsProps {
@@ -15,7 +14,7 @@ interface ProfileSettingsProps {
   refreshUserData: () => void;
 }
 
-type TabType = 'profile' | 'preferences';
+type TabType = 'profile' | 'preferences' | 'goals';
 
 export default function ProfileSettings({ onThemeChange, currentTheme, refreshUserData }: ProfileSettingsProps) {
   const [activeTab, setActiveTab] = useState<TabType>('profile');
@@ -35,6 +34,12 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
   const [quietHoursStart, setQuietHoursStart] = useState('22:00');
   const [quietHoursEnd, setQuietHoursEnd] = useState('08:00');
 
+  // Tab 3: Goals State
+  const [dailyGoalHours, setDailyGoalHours] = useState(2);
+  const [weeklyGoalHours, setWeeklyGoalHours] = useState(10);
+  const [dailyGoalId, setDailyGoalId] = useState<number | undefined>(undefined);
+  const [weeklyGoalId, setWeeklyGoalId] = useState<number | undefined>(undefined);
+
   // Avatar Options
   const avatars = [
     'https://api.dicebear.com/7.x/bottts/svg?seed=Felix',
@@ -47,6 +52,7 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
   useEffect(() => {
     loadProfile();
     loadPreferences();
+    loadGoals();
   }, []);
 
   async function loadProfile() {
@@ -75,6 +81,26 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
       }
     } catch (e) {
       console.error('Failed to load preferences', e);
+    }
+  }
+
+  async function loadGoals() {
+    try {
+      const data = await getGoals();
+      if (data.goals) {
+        const daily = data.goals.find((g: any) => g.period === 'daily');
+        if (daily) {
+          setDailyGoalHours(daily.target_hours);
+          setDailyGoalId(daily.id);
+        }
+        const weekly = data.goals.find((g: any) => g.period === 'weekly');
+        if (weekly) {
+          setWeeklyGoalHours(weekly.target_hours);
+          setWeeklyGoalId(weekly.id);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load goals', e);
     }
   }
 
@@ -123,6 +149,33 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
     }
   }
 
+  // Goals Save
+  async function handleGoalsSave(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const goalsPayload = [
+        { id: dailyGoalId, period: 'daily', target_hours: dailyGoalHours, title: 'Daily Target' },
+        { id: weeklyGoalId, period: 'weekly', target_hours: weeklyGoalHours, title: 'Weekly Target' }
+      ];
+      const data = await updateGoals({ goals: goalsPayload });
+      
+      // Update IDs in case they were newly created
+      if (data.goals) {
+        const daily = data.goals.find((g: any) => g.period === 'daily');
+        if (daily) setDailyGoalId(daily.id);
+        const weekly = data.goals.find((g: any) => g.period === 'weekly');
+        if (weekly) setWeeklyGoalId(weekly.id);
+      }
+      
+      flashMessage('Goals updated successfully!');
+    } catch (err) {
+      flashError('Failed to save goals.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
       
@@ -154,6 +207,9 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
           </div>
           <div className={`sidebar-item ${activeTab === 'preferences' ? 'active' : ''}`} style={{ padding: '10px 14px' }} onClick={() => setActiveTab('preferences')}>
             Study Preferences
+          </div>
+          <div className={`sidebar-item ${activeTab === 'goals' ? 'active' : ''}`} style={{ padding: '10px 14px' }} onClick={() => setActiveTab('goals')}>
+            Productivity Goals
           </div>
         </div>
 
@@ -252,7 +308,28 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
             </form>
           )}
 
+          {/* TAB 3: Goals Settings */}
+          {activeTab === 'goals' && (
+            <form onSubmit={handleGoalsSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <h3 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', textAlign: 'left' }}>
+                Study Goals
+              </h3>
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Daily Target (hours)</label>
+                <input type="number" min="0.5" max="24" step="0.5" className="form-input" value={dailyGoalHours} onChange={(e) => setDailyGoalHours(parseFloat(e.target.value) || 2)} required />
+              </div>
 
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Weekly Target (hours)</label>
+                <input type="number" min="1" max="168" step="1" className="form-input" value={weeklyGoalHours} onChange={(e) => setWeeklyGoalHours(parseFloat(e.target.value) || 10)} required />
+              </div>
+
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end' }} disabled={loading}>
+                Save Goals
+              </button>
+            </form>
+          )}
 
         </div>
 

@@ -74,6 +74,16 @@ export async function getGamification() {
   return res.data;
 }
 
+export async function getGoals() {
+  const res = await client.get('/profile/goals');
+  return res.data;
+}
+
+export async function updateGoals(payload: { goals: any[] }) {
+  const res = await client.put('/profile/goals', payload);
+  return res.data;
+}
+
 // Subjects endpoints
 export async function getSubjects() {
   const res = await client.get('/subjects');
@@ -142,35 +152,6 @@ export async function getPomodoroStats(params?: any) {
   return res.data;
 }
 
-// Kanban endpoints
-export async function getKanbanColumns() {
-  const res = await client.get('/kanban/columns');
-  return res.data;
-}
 
-export async function createKanbanColumn(payload: { name: string }) {
-  const res = await client.post('/kanban/columns', payload);
-  return res.data;
-}
-
-export async function updateKanbanColumn(id: number, payload: { name?: string; position?: number }) {
-  const res = await client.put(`/kanban/columns/${id}`, payload);
-  return res.data;
-}
-
-export async function deleteKanbanColumn(id: number) {
-  const res = await client.delete(`/kanban/columns/${id}`);
-  return res.data;
-}
-
-export async function moveTaskToColumn(payload: { columnId: number; taskId: number; position: number }) {
-  const res = await client.post('/kanban/move-task', payload);
-  return res.data;
-}
-
-export async function getColumnTasks(columnId: number) {
-  const res = await client.get(`/kanban/columns/${columnId}/tasks`);
-  return res.data;
-}
 
 export default client;
