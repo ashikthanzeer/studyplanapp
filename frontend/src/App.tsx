@@ -20,6 +20,7 @@ function App() {
   
   // Navigation & Theme
   const [currentView, setCurrentView] = useState<ViewType>('dashboard');
+  const [settingsTab, setSettingsTab] = useState<'profile' | 'preferences' | 'goals'>('profile');
   const [theme, setTheme] = useState<'light' | 'dark'>(
     (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   );
@@ -122,13 +123,20 @@ function App() {
     setCurrentView('timer');
   }
 
+  function handleViewChange(view: ViewType, tab?: 'profile' | 'preferences' | 'goals') {
+    setCurrentView(view);
+    if (view === 'settings' && tab) {
+      setSettingsTab(tab);
+    }
+  }
+
   // View Router
   function renderActiveView() {
     switch (currentView) {
       case 'dashboard':
         return (
           <Dashboard
-            onViewChange={setCurrentView}
+            onViewChange={handleViewChange}
             setSelectedTaskForTimer={setSelectedTaskForTimer}
             user={user}
           />
@@ -153,10 +161,11 @@ function App() {
             onThemeChange={handleThemeChange}
             currentTheme={theme}
             refreshUserData={loadUserProfile}
+            initialTab={settingsTab}
           />
         );
       default:
-        return <Dashboard onViewChange={setCurrentView} setSelectedTaskForTimer={setSelectedTaskForTimer} user={user} />;
+        return <Dashboard onViewChange={handleViewChange} setSelectedTaskForTimer={setSelectedTaskForTimer} user={user} />;
     }
   }
 
@@ -183,7 +192,7 @@ function App() {
       {/* Navigation Shell */}
       <Sidebar
         currentView={currentView}
-        onViewChange={setCurrentView}
+        onViewChange={handleViewChange}
         user={user}
         onLogout={handleLogout}
       />

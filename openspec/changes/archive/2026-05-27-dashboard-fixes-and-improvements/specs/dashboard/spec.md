@@ -1,8 +1,5 @@
-# dashboard Specification
+## MODIFIED Requirements
 
-## Purpose
-Productivity stats, goals, and badge summaries displayed on the user dashboard.
-## Requirements
 ### Requirement: Dashboard displays daily productivity summary
 The system SHALL show today's study statistics including sessions completed, total focus time, tasks completed, and a comparison against the previous period. When a user clicks on the "Focus Today" or "Focus This Week" panels, the system SHALL display a detailed comparison overlay showing focus hours for the past 7 days or the past 4 weeks (including the current week) respectively.
 
@@ -29,11 +26,3 @@ The system SHALL show today's study statistics including sessions completed, tot
 #### Scenario: Open past 4 weeks comparison modal
 - **WHEN** the user clicks on the "Focus This Week" panel
 - **THEN** the system SHALL open a modal showing focus hours from the past 4 weeks (including current week) with visual progress bars compared to the weekly goal
-
-### Requirement: Dashboard displays gamification rewards and badges
-The system SHALL display the user's active level rank (e.g., Bronze, Silver, Gold) and a showcase of all available badges on the dashboard.
-
-#### Scenario: View badges and rank on dashboard
-- **WHEN** the user views the dashboard
-- **THEN** the system displays their current level rank and a visual gallery of all badges, where earned badges show counts for duplicates and unearned badges are displayed with reduced brightness and a locked sign
-

@@ -4,7 +4,7 @@ type ViewType = 'dashboard' | 'tasks' | 'subjects' | 'timer' | 'history' | 'sett
 
 interface SidebarProps {
   currentView: ViewType;
-  onViewChange: (view: ViewType) => void;
+  onViewChange: (view: ViewType, tab?: 'profile' | 'preferences' | 'goals') => void;
   user: any;
   onLogout: () => void;
 }
@@ -109,7 +109,7 @@ export default function Sidebar({ currentView, onViewChange, user, onLogout }: S
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div className="sidebar-profile">
+          <div className="sidebar-profile" style={{ cursor: 'pointer' }} onClick={() => onViewChange('settings', 'profile')}>
             {user?.avatar_url ? (
               <img src={user.avatar_url} alt={user.name} className="profile-avatar" />
             ) : (

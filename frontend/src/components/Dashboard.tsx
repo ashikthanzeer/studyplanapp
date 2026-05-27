@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { getTasks, updateTask, getPomodoroStats, getGamification, getGoals } from '../api/client';
+import { getTasks, updateTask, getPomodoroStats, getGamification, getGoals, getPomodoroHistory } from '../api/client';
 
 type ViewType = 'dashboard' | 'tasks' | 'subjects' | 'timer' | 'history' | 'settings';
 
 interface DashboardProps {
-  onViewChange: (view: ViewType) => void;
+  onViewChange: (view: ViewType, tab?: 'profile' | 'preferences' | 'goals') => void;
   setSelectedTaskForTimer: (task: any) => void;
   user: any;
 }
@@ -39,6 +39,98 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
   const [goalProgress, setGoalProgress] = useState(0);
   const [dailyGoalHours, setDailyGoalHours] = useState(2);
   const [weeklyGoalHours, setWeeklyGoalHours] = useState(10);
+  
+  const [comparisonModal, setComparisonModal] = useState<'today' | 'week' | null>(null);
+  const [comparisonData, setComparisonData] = useState<any[]>([]);
+  const [comparisonLoading, setComparisonLoading] = useState(false);
+
+  useEffect(() => {
+    if (comparisonModal) {
+      fetchComparisonData(comparisonModal);
+    }
+  }, [comparisonModal]);
+
+  async function fetchComparisonData(type: 'today' | 'week') {
+    setComparisonLoading(true);
+    setComparisonData([]);
+    try {
+      const now = new Date();
+      if (type === 'today') {
+        // Fetch sessions from past 7 days
+        const dateFrom = new Date();
+        dateFrom.setDate(now.getDate() - 6);
+        dateFrom.setHours(0, 0, 0, 0);
+        
+        const data = await getPomodoroHistory({ date_from: dateFrom.toISOString().split('T')[0] });
+        const sessions = data.sessions || [];
+        
+        // Group by day for the past 7 days
+        const days = [];
+        for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(now.getDate() - i);
+          const dateStr = d.toISOString().split('T')[0];
+          
+          const daySessions = sessions.filter((s: any) => 
+            s.status === 'completed' && 
+            new Date(s.ended_at).toISOString().split('T')[0] === dateStr
+          );
+          
+          const totalMin = daySessions.reduce((sum: number, s: any) => sum + s.duration_minutes, 0);
+          const hours = parseFloat((totalMin / 60).toFixed(1));
+          
+          days.push({
+            label: d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }),
+            hours,
+            isToday: i === 0
+          });
+        }
+        setComparisonData(days);
+      } else {
+        // Fetch sessions from past 4 weeks (including current week)
+        const dateFrom = new Date();
+        const day = dateFrom.getDay();
+        const diffToMonday = dateFrom.getDate() - day + (day === 0 ? -6 : 1);
+        const currentMonday = new Date(dateFrom.setDate(diffToMonday));
+        currentMonday.setHours(0, 0, 0, 0);
+        
+        const fourWeeksAgoMonday = new Date(currentMonday);
+        fourWeeksAgoMonday.setDate(currentMonday.getDate() - 21);
+        
+        const data = await getPomodoroHistory({ date_from: fourWeeksAgoMonday.toISOString().split('T')[0] });
+        const sessions = data.sessions || [];
+        
+        const weeks = [];
+        for (let i = 3; i >= 0; i--) {
+          const start = new Date(fourWeeksAgoMonday);
+          start.setDate(fourWeeksAgoMonday.getDate() + (3 - i) * 7);
+          const end = new Date(start);
+          end.setDate(start.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+          
+          const weekSessions = sessions.filter((s: any) => {
+            if (s.status !== 'completed') return false;
+            const ended = new Date(s.ended_at);
+            return ended >= start && ended <= end;
+          });
+          
+          const totalMin = weekSessions.reduce((sum: number, s: any) => sum + s.duration_minutes, 0);
+          const hours = parseFloat((totalMin / 60).toFixed(1));
+          
+          weeks.push({
+            label: `Week of ${start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+            hours,
+            isCurrent: i === 0
+          });
+        }
+        setComparisonData(weeks);
+      }
+    } catch (e) {
+      console.error('Failed to load comparison stats', e);
+    } finally {
+      setComparisonLoading(false);
+    }
+  }
 
   useEffect(() => {
     loadDashboardData();
@@ -119,6 +211,73 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
     onViewChange('timer');
   }
 
+  function renderComparisonModal() {
+    if (!comparisonModal) return null;
+
+    const title = comparisonModal === 'today' ? 'Past 7 Days Focus' : 'Past 4 Weeks Focus';
+    const goalText = comparisonModal === 'today' 
+      ? `Daily Goal: ${dailyGoalHours} hours` 
+      : `Weekly Goal: ${weeklyGoalHours} hours`;
+    
+    const targetHours = comparisonModal === 'today' ? dailyGoalHours : weeklyGoalHours;
+    const maxVal = Math.max(...comparisonData.map(d => d.hours), targetHours, 1);
+
+    return (
+      <div className="modal-overlay" onClick={() => setComparisonModal(null)}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '550px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px' }}>
+            <div style={{ textAlign: 'left' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: '800', margin: 0 }}>{title}</h3>
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{goalText}</span>
+            </div>
+            <button className="btn btn-secondary btn-icon" onClick={() => setComparisonModal(null)} style={{ padding: '6px' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', margin: '12px 0' }}>
+            {comparisonLoading ? (
+              <div style={{ padding: '40px 0', textAlign: 'center', color: 'var(--text-muted)' }}>
+                Loading focus history...
+              </div>
+            ) : (
+              comparisonData.map((item, idx) => {
+                const percentage = (item.hours / maxVal) * 100;
+                const isGoalAchieved = item.hours >= targetHours;
+                const activeColor = comparisonModal === 'today' ? 'var(--success)' : 'var(--primary)';
+
+                return (
+                  <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <span style={{ fontWeight: item.isToday || item.isCurrent ? '700' : '500', color: item.isToday || item.isCurrent ? 'var(--text-heading)' : 'var(--text-muted)' }}>
+                        {item.label} {(item.isToday || item.isCurrent) && ' (Current)'}
+                      </span>
+                      <strong style={{ color: isGoalAchieved ? activeColor : 'var(--text-heading)' }}>
+                        {item.hours} hrs {isGoalAchieved && '🎯'}
+                      </strong>
+                    </div>
+                    <div style={{ width: '100%', height: '14px', background: 'var(--border)', borderRadius: '6px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${percentage}%`, background: isGoalAchieved ? `linear-gradient(90deg, ${activeColor}, hsl(var(--primary-hue), 85%, 70%))` : 'var(--text-muted)', borderRadius: '6px', transition: 'width 0.5s ease-out' }} />
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <button className="btn btn-primary" onClick={() => setComparisonModal(null)}>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const todayDateStr = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
@@ -127,6 +286,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
+      {renderComparisonModal()}
       
       {/* Welcome Banner */}
       <div className="glass-card" style={{ padding: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'linear-gradient(135deg, var(--primary-light), rgba(255,255,255,0))', borderLeft: '5px solid var(--primary)', flexWrap: 'wrap', gap: '20px' }}>
@@ -242,7 +402,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
         </div>
 
         {/* Productivity Analytics Goals */}
-        <div className="glass-card widget-small widget-card" style={{ gap: '12px' }}>
+        <div className="glass-card widget-small widget-card" style={{ gap: '12px', cursor: 'pointer' }} onClick={() => onViewChange('settings', 'goals')}>
           <div style={{ textAlign: 'left' }}>
             <h3 style={{ fontSize: '16px' }}>Productivity Goals</h3>
             <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Focus hours progress this week</p>
@@ -276,7 +436,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
         </div>
 
         {/* Today's Focus Hours Card */}
-        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--success-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--success)', gap: '10px' }}>
+        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--success-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--success)', gap: '10px', cursor: 'pointer' }} onClick={() => setComparisonModal('today')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--success)', textTransform: 'uppercase' }}>Focus Today</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -300,7 +460,7 @@ export default function Dashboard({ onViewChange, setSelectedTaskForTimer, user 
         </div>
 
         {/* Weekly Focus Hours Card */}
-        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--primary-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--primary)', gap: '10px' }}>
+        <div className="glass-card widget-small widget-card" style={{ background: 'linear-gradient(135deg, var(--primary-light), rgba(255,255,255,0))', borderLeft: '4px solid var(--primary)', gap: '10px', cursor: 'pointer' }} onClick={() => setComparisonModal('week')}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span style={{ fontSize: '12px', fontWeight: '700', color: 'var(--primary)', textTransform: 'uppercase' }}>Focus This Week</span>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

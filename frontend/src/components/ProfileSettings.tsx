@@ -12,12 +12,19 @@ interface ProfileSettingsProps {
   onThemeChange: (theme: 'light' | 'dark') => void;
   currentTheme: 'light' | 'dark';
   refreshUserData: () => void;
+  initialTab?: TabType;
 }
 
 type TabType = 'profile' | 'preferences' | 'goals';
 
-export default function ProfileSettings({ onThemeChange, currentTheme, refreshUserData }: ProfileSettingsProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('profile');
+export default function ProfileSettings({ onThemeChange, currentTheme, refreshUserData, initialTab }: ProfileSettingsProps) {
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab || 'profile');
+  
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [errMessage, setErrMessage] = useState('');
