@@ -37,6 +37,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   // Audio alarm reference
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<number | null>(null);
+  const targetEndTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
     loadPreferences();
@@ -97,7 +98,6 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
     try {
       const state = JSON.parse(saved);
       const now = Date.now();
-      const elapsedSeconds = Math.floor((now - state.timestamp) / 1000);
       
       setMode(state.mode);
       setFocusCount(state.focusCount || 0);
@@ -105,13 +105,25 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       setSessionId(state.sessionId || null);
 
       if (state.isActive && !state.isPaused) {
-        const remaining = state.timeLeft - elapsedSeconds;
+        let remaining = 0;
+        let computedTargetEndTime = state.targetEndTime;
+        
+        if (computedTargetEndTime) {
+          remaining = Math.max(0, Math.ceil((computedTargetEndTime - now) / 1000));
+        } else {
+          const elapsedSeconds = Math.floor((now - state.timestamp) / 1000);
+          remaining = state.timeLeft - elapsedSeconds;
+          computedTargetEndTime = now + remaining * 1000;
+        }
+        
+        targetEndTimeRef.current = computedTargetEndTime;
+
         if (remaining > 0) {
           setTimeLeft(remaining);
           setTotalDuration(state.totalDuration);
           setIsActive(true);
           setIsPaused(false);
-          startTimerLoop(remaining, state.totalDuration);
+          startTimerLoop(remaining, state.totalDuration, state.sessionId, computedTargetEndTime);
         } else {
           // Timer finished while tab was closed
           setTimeLeft(0);
@@ -123,6 +135,9 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
         setTotalDuration(state.totalDuration);
         setIsActive(state.isActive);
         setIsPaused(state.isPaused);
+        if (state.targetEndTime) {
+          targetEndTimeRef.current = state.targetEndTime;
+        }
       }
     } catch (e) {
       console.error('Failed to restore timer state', e);
@@ -130,7 +145,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   }
 
   // Save state to LocalStorage
-  function saveTimerState(timeLeftValue: number, active: boolean, paused: boolean, sessId: number | null) {
+  function saveTimerState(timeLeftValue: number, active: boolean, paused: boolean, sessId: number | null, endTimestamp?: number | null) {
     const state = {
       mode,
       timeLeft: timeLeftValue,
@@ -140,7 +155,8 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       sessionId: sessId,
       focusCount,
       associatedTaskId,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      targetEndTime: endTimestamp !== undefined ? endTimestamp : targetEndTimeRef.current
     };
     localStorage.setItem('pomodoro_timer_state', JSON.stringify(state));
   }
@@ -200,20 +216,23 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   }
 
   // Timer Loop
-  function startTimerLoop(startSeconds: number, totalSecs: number) {
+  function startTimerLoop(startSeconds: number, totalSecs: number, currentSessionId?: number | null, computedTargetEndTime?: number) {
     if (intervalRef.current) clearInterval(intervalRef.current);
     
-    let currentSeconds = startSeconds;
+    const sessId = currentSessionId !== undefined ? currentSessionId : sessionId;
+    const endTime = computedTargetEndTime || (Date.now() + startSeconds * 1000);
+    targetEndTimeRef.current = endTime;
+    
     intervalRef.current = setInterval(() => {
-      currentSeconds -= 1;
-      setTimeLeft(currentSeconds);
+      const remainingSeconds = Math.max(0, Math.ceil((endTime - Date.now()) / 1000));
+      setTimeLeft(remainingSeconds);
       
       // Save state on every tick
-      saveTimerState(currentSeconds, true, false, sessionId);
+      saveTimerState(remainingSeconds, true, false, sessId, endTime);
 
-      if (currentSeconds <= 0) {
+      if (remainingSeconds <= 0) {
         if (intervalRef.current) clearInterval(intervalRef.current);
-        handleTimerComplete(mode, sessionId, focusCount);
+        handleTimerComplete(mode, sessId, focusCount);
       }
     }, 1000) as any;
   }
@@ -221,6 +240,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   async function handleTimerComplete(currentMode: TimerMode, activeSessionId: number | null, count: number) {
     setIsActive(false);
     setIsPaused(false);
+    targetEndTimeRef.current = null;
     clearTimerState();
 
     if (audioRef.current) {
@@ -286,15 +306,18 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
 
     setIsActive(true);
     setIsPaused(false);
-    startTimerLoop(timeLeft, totalDuration);
-    saveTimerState(timeLeft, true, false, activeSessId);
+    const computedTargetEndTime = Date.now() + timeLeft * 1000;
+    targetEndTimeRef.current = computedTargetEndTime;
+    startTimerLoop(timeLeft, totalDuration, activeSessId, computedTargetEndTime);
+    saveTimerState(timeLeft, true, false, activeSessId, computedTargetEndTime);
   }
 
   // Pause Action
   function handlePause() {
     if (intervalRef.current) clearInterval(intervalRef.current);
     setIsPaused(true);
-    saveTimerState(timeLeft, true, true, sessionId);
+    targetEndTimeRef.current = null;
+    saveTimerState(timeLeft, true, true, sessionId, null);
   }
 
   // Skip Action
@@ -310,6 +333,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       }
     }
 
+    targetEndTimeRef.current = null;
     clearTimerState();
     setSessionId(null);
     setIsActive(false);
@@ -347,6 +371,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       }
     }
 
+    targetEndTimeRef.current = null;
     clearTimerState();
     setSessionId(null);
     setIsActive(false);
