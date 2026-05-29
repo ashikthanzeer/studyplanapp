@@ -54,7 +54,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   }
 
   return (
-    <div style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', gap: '20px', padding: '40px 20px' }}>
       <div className="glass-card auth-card">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
           {/* Logo Icon */}
@@ -99,6 +99,19 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           </button>
         </form>
       </div>
+
+      {/* Download button for Android */}
+      <a 
+        href="https://expo.dev/accounts/ashikthanzeer/projects/study-planner/builds/8ec53be2-adb7-438d-8f3a-b9c2809d293f"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="android-download-btn"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M16.61 15.15c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1-1.1.49-1.1 1.1.49 1.1 1.1 1.1m-9.22 0c.61 0 1.1-.49 1.1-1.1s-.49-1.1-1.1-1.1-1.1.49-1.1 1.1.49 1.1 1.1 1.1m9.67-5.57l1.7-2.95a.365.365 0 0 0-.13-.5.365.365 0 0 0-.5.13l-1.73 3a10.02 10.02 0 0 0-7.8 0l-1.73-3a.365.365 0 0 0-.5-.13.365.365 0 0 0-.13.5l1.7 2.95C5.07 10.96 2.87 13.97 2.87 17.5h18.26c0-3.53-2.2-6.54-5.3-7.92M6.5 22h2v-2h-2zm9 0h2v-2h-2z" />
+        </svg>
+        <span>Download for Android</span>
+      </a>
     </div>
   );
 }
