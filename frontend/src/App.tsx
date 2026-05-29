@@ -25,8 +25,20 @@ function App() {
     (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
   );
   
+  // Mobile Sidebar Toggle State
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
   // Deep-linking task focus
   const [selectedTaskForTimer, setSelectedTaskForTimer] = useState<any | null>(null);
+
+  const viewTitles: Record<ViewType, string> = {
+    dashboard: 'Dashboard',
+    tasks: 'Tasks',
+    subjects: 'Subjects Manager',
+    timer: 'Focus Timer',
+    history: 'Session History',
+    settings: 'Profile Settings'
+  };
 
   useEffect(() => {
     if (token) {
@@ -188,17 +200,37 @@ function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${sidebarOpen ? 'sidebar-active' : ''}`}>
+      {/* Sidebar Backdrop Overlay */}
+      {sidebarOpen && (
+        <div className="sidebar-backdrop" onClick={() => setSidebarOpen(false)} />
+      )}
+
       {/* Navigation Shell */}
       <Sidebar
         currentView={currentView}
-        onViewChange={handleViewChange}
+        onViewChange={(view, tab) => {
+          handleViewChange(view, tab);
+          setSidebarOpen(false); // Close sidebar on view transition
+        }}
         user={user}
         onLogout={handleLogout}
+        isOpen={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       {/* Main View Container */}
       <main className="main-content">
+        <header className="mobile-header">
+          <button className="hamburger-btn" onClick={() => setSidebarOpen(true)} aria-label="Open navigation menu">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+            </svg>
+          </button>
+          <span className="mobile-header-title">{viewTitles[currentView]}</span>
+        </header>
         {renderActiveView()}
       </main>
     </div>

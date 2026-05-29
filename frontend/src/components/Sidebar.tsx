@@ -7,9 +7,11 @@ interface SidebarProps {
   onViewChange: (view: ViewType, tab?: 'profile' | 'preferences' | 'goals') => void;
   user: any;
   onLogout: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
 }
 
-export default function Sidebar({ currentView, onViewChange, user, onLogout }: SidebarProps) {
+export default function Sidebar({ currentView, onViewChange, user, onLogout, isOpen, onClose }: SidebarProps) {
   const menuItems = [
     {
       id: 'dashboard' as ViewType,
@@ -84,14 +86,22 @@ export default function Sidebar({ currentView, onViewChange, user, onLogout }: S
   return (
     <>
       {/* Desktop Sidebar Nav */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isOpen ? 'open' : ''}`}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div className="sidebar-logo">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
-              <path d="M12 6v6l4 2" />
-            </svg>
-            <span>StudyPlanner</span>
+          <div className="sidebar-logo-container">
+            <div className="sidebar-logo">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+              <span>StudyPlanner</span>
+            </div>
+            <button className="sidebar-close-btn" onClick={onClose} aria-label="Close navigation menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
           </div>
 
           <nav>
