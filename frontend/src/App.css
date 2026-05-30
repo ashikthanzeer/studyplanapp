@@ -493,7 +493,7 @@
   display: none; /* Hidden on desktop */
   align-items: center;
   gap: 16px;
-  padding: 16px 24px;
+  padding: 24px 24px 16px 24px;
   background: var(--bg-sidebar);
   border-bottom: 1px solid var(--border);
   position: fixed;
@@ -556,6 +556,8 @@
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: none;
     width: 280px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .sidebar.open {
@@ -572,13 +574,61 @@
   }
 
   .main-content {
-    padding-top: 72px !important;
+    padding-top: 80px !important;
   }
 
   .app-container.sidebar-active {
     overflow: hidden;
     height: 100vh;
   }
+}
+
+/* Focus Studio Tab Switcher */
+.focus-mode-switcher {
+  display: flex;
+  background: var(--border);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  max-width: 400px;
+  margin: 0 auto;
+  gap: 4px;
+  border: 1px solid var(--border);
+  width: 100%;
+}
+[data-theme="dark"] .focus-mode-switcher {
+  background: #0f111a;
+  border-color: #1e293b;
+}
+
+.focus-mode-tab {
+  flex: 1;
+  padding: 10px 16px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-smooth);
+  color: var(--text-muted);
+  border: none;
+  background: transparent;
+}
+
+.focus-mode-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.focus-mode-tab.active-timer {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
+}
+
+.focus-mode-tab.active-stopwatch {
+  background: #3b82f6;
+  color: #ffffff;
+  box-shadow: var(--shadow-sm);
 }
 
 

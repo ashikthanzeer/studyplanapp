@@ -121,9 +121,8 @@ export default function Sidebar({ currentView, onViewChange, user, onLogout, isO
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Download button for Android */}
           <a 
-            href="https://expo.dev/accounts/ashikthanzeer/projects/study-planner/builds/8ec53be2-adb7-438d-8f3a-b9c2809d293f"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/study-planner.apk"
+            download="study-planner.apk"
             className="android-download-btn"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">

@@ -102,9 +102,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
       {/* Download button for Android */}
       <a 
-        href="https://expo.dev/accounts/ashikthanzeer/projects/study-planner/builds/8ec53be2-adb7-438d-8f3a-b9c2809d293f"
-        target="_blank"
-        rel="noopener noreferrer"
+        href="/study-planner.apk"
+        download="study-planner.apk"
         className="android-download-btn"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

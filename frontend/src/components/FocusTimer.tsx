@@ -29,6 +29,15 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   const [isPaused, setIsPaused] = useState(false);
   const [sessionId, setSessionId] = useState<number | null>(null);
   const [focusCount, setFocusCount] = useState(0); // count focus sessions to trigger long break
+
+  // General Screen Modes: 'timer' (Pomodoro) or 'stopwatch'
+  const [focusMode, setFocusMode] = useState<'timer' | 'stopwatch'>('timer');
+
+  // Stopwatch States
+  const [stopwatchTime, setStopwatchTime] = useState(0);
+  const [stopwatchStartTime, setStopwatchStartTime] = useState<number | null>(null);
+  const [stopwatchIsActive, setStopwatchIsActive] = useState(false);
+  const [stopwatchIsPaused, setStopwatchIsPaused] = useState(false);
   
   // Task Association
   const [tasks, setTasks] = useState<any[]>([]);
@@ -65,6 +74,15 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
     }
   }, [selectedTask, focusLength]);
 
+  function handleModeChange(newMode: 'timer' | 'stopwatch') {
+    if (isActive || stopwatchIsActive) return;
+    setFocusMode(newMode);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }
+
   async function loadPreferences() {
     try {
       const data = await getPreferences();
@@ -99,44 +117,65 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       const state = JSON.parse(saved);
       const now = Date.now();
       
-      setMode(state.mode);
-      setFocusCount(state.focusCount || 0);
-      setAssociatedTaskId(state.associatedTaskId || '');
-      setSessionId(state.sessionId || null);
+      if (state.focusMode === 'stopwatch') {
+        setFocusMode('stopwatch');
+        setStopwatchTime(state.stopwatchTime || 0);
+        setStopwatchIsActive(state.stopwatchIsActive || false);
+        setStopwatchIsPaused(state.stopwatchIsPaused || false);
+        setStopwatchStartTime(state.stopwatchStartTime || null);
 
-      if (state.isActive && !state.isPaused) {
-        let remaining = 0;
-        let computedTargetEndTime = state.targetEndTime;
-        
-        if (computedTargetEndTime) {
-          remaining = Math.max(0, Math.ceil((computedTargetEndTime - now) / 1000));
-        } else {
-          const elapsedSeconds = Math.floor((now - state.timestamp) / 1000);
-          remaining = state.timeLeft - elapsedSeconds;
-          computedTargetEndTime = now + remaining * 1000;
-        }
-        
-        targetEndTimeRef.current = computedTargetEndTime;
-
-        if (remaining > 0) {
-          setTimeLeft(remaining);
-          setTotalDuration(state.totalDuration);
-          setIsActive(true);
-          setIsPaused(false);
-          startTimerLoop(remaining, state.totalDuration, state.sessionId, computedTargetEndTime);
-        } else {
-          // Timer finished while tab was closed
-          setTimeLeft(0);
-          setTotalDuration(state.totalDuration);
-          handleTimerComplete(state.mode, state.sessionId, state.focusCount);
+        if (state.stopwatchIsActive && !state.stopwatchIsPaused && state.stopwatchStartTime) {
+          const elapsed = Math.floor((now - state.stopwatchStartTime) / 1000);
+          setStopwatchTime(elapsed);
+          
+          if (intervalRef.current) clearInterval(intervalRef.current);
+          intervalRef.current = setInterval(() => {
+            const currentElapsed = Math.floor((Date.now() - state.stopwatchStartTime) / 1000);
+            setStopwatchTime(currentElapsed);
+            saveStopwatchState(currentElapsed, true, false, state.stopwatchStartTime);
+          }, 1000) as any;
         }
       } else {
-        setTimeLeft(state.timeLeft);
-        setTotalDuration(state.totalDuration);
-        setIsActive(state.isActive);
-        setIsPaused(state.isPaused);
-        if (state.targetEndTime) {
-          targetEndTimeRef.current = state.targetEndTime;
+        setFocusMode('timer');
+        setMode(state.mode);
+        setFocusCount(state.focusCount || 0);
+        setAssociatedTaskId(state.associatedTaskId || '');
+        setSessionId(state.sessionId || null);
+
+        if (state.isActive && !state.isPaused) {
+          let remaining = 0;
+          let computedTargetEndTime = state.targetEndTime;
+          
+          if (computedTargetEndTime) {
+            remaining = Math.max(0, Math.ceil((computedTargetEndTime - now) / 1000));
+          } else {
+            const elapsedSeconds = Math.floor((now - state.timestamp) / 1000);
+            remaining = state.timeLeft - elapsedSeconds;
+            computedTargetEndTime = now + remaining * 1000;
+          }
+          
+          targetEndTimeRef.current = computedTargetEndTime;
+
+          if (remaining > 0) {
+            setTimeLeft(remaining);
+            setTotalDuration(state.totalDuration);
+            setIsActive(true);
+            setIsPaused(false);
+            startTimerLoop(remaining, state.totalDuration, state.sessionId, computedTargetEndTime);
+          } else {
+            // Timer finished while tab was closed
+            setTimeLeft(0);
+            setTotalDuration(state.totalDuration);
+            handleTimerComplete(state.mode, state.sessionId, state.focusCount);
+          }
+        } else {
+          setTimeLeft(state.timeLeft);
+          setTotalDuration(state.totalDuration);
+          setIsActive(state.isActive);
+          setIsPaused(state.isPaused);
+          if (state.targetEndTime) {
+            targetEndTimeRef.current = state.targetEndTime;
+          }
         }
       }
     } catch (e) {
@@ -147,6 +186,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
   // Save state to LocalStorage
   function saveTimerState(timeLeftValue: number, active: boolean, paused: boolean, sessId: number | null, endTimestamp?: number | null) {
     const state = {
+      focusMode: 'timer',
       mode,
       timeLeft: timeLeftValue,
       totalDuration,
@@ -159,6 +199,22 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
       targetEndTime: endTimestamp !== undefined ? endTimestamp : targetEndTimeRef.current
     };
     localStorage.setItem('pomodoro_timer_state', JSON.stringify(state));
+  }
+
+  function saveStopwatchState(timeValue: number, active: boolean, paused: boolean, startTimeVal: number | null) {
+    const state = {
+      focusMode: 'stopwatch',
+      stopwatchTime: timeValue,
+      stopwatchIsActive: active,
+      stopwatchIsPaused: paused,
+      stopwatchStartTime: startTimeVal,
+      timestamp: Date.now()
+    };
+    localStorage.setItem('pomodoro_timer_state', JSON.stringify(state));
+  }
+
+  function clearStopwatchState() {
+    localStorage.removeItem('pomodoro_timer_state');
   }
 
   function clearTimerState() {
@@ -390,15 +446,101 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
     if (clearSelectedTask) clearSelectedTask();
   }
 
+  // --- Stopwatch Action Handlers ---
+  function handleStopwatchStart() {
+    const elapsed = stopwatchTime;
+    const startTimestamp = Date.now() - (elapsed * 1000);
+    setStopwatchStartTime(startTimestamp);
+    setStopwatchIsActive(true);
+    setStopwatchIsPaused(false);
+
+    if (intervalRef.current) clearInterval(intervalRef.current);
+    
+    intervalRef.current = setInterval(() => {
+      const currentElapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+      setStopwatchTime(currentElapsed);
+      saveStopwatchState(currentElapsed, true, false, startTimestamp);
+    }, 1000) as any;
+
+    saveStopwatchState(elapsed, true, false, startTimestamp);
+  }
+
+  function handleStopwatchPause() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setStopwatchIsPaused(true);
+    saveStopwatchState(stopwatchTime, true, true, stopwatchStartTime);
+  }
+
+  async function handleStopwatchStop() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    const elapsedMinutes = Math.floor(stopwatchTime / 60);
+
+    if (elapsedMinutes >= 1) {
+      try {
+        const res = await startPomodoroSession({
+          duration_minutes: elapsedMinutes
+        });
+        const activeSessId = res.session.id;
+        await completePomodoroSession(activeSessId);
+        
+        showToast(`Session Saved! You focused for ${elapsedMinutes} minute(s).`);
+        if (onSessionComplete) onSessionComplete();
+      } catch (e) {
+        console.error(e);
+        showToast('Failed to save focus session.');
+      }
+    } else {
+      showToast('Sessions shorter than 1 minute are not saved.');
+    }
+
+    setStopwatchTime(0);
+    setStopwatchStartTime(null);
+    setStopwatchIsActive(false);
+    setStopwatchIsPaused(false);
+    clearStopwatchState();
+  }
+
+  function handleStopwatchReset() {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setStopwatchTime(0);
+    setStopwatchStartTime(null);
+    setStopwatchIsActive(false);
+    setStopwatchIsPaused(false);
+    clearStopwatchState();
+  }
+
   // Format MM:SS
   const mins = Math.floor(timeLeft / 60);
   const secs = timeLeft % 60;
   const timeDisplay = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
+  // Format Stopwatch time: HH:MM:SS or MM:SS
+  const swHours = Math.floor(stopwatchTime / 3600);
+  const swMins = Math.floor((stopwatchTime % 3600) / 60);
+  const swSecs = stopwatchTime % 60;
+  const stopwatchTimeDisplay = swHours > 0 
+    ? `${swHours.toString().padStart(2, '0')}:${swMins.toString().padStart(2, '0')}:${swSecs.toString().padStart(2, '0')}`
+    : `${swMins.toString().padStart(2, '0')}:${swSecs.toString().padStart(2, '0')}`;
+
   // SVG Progress Stroke
   const radius = 40;
   const circumference = 2 * Math.PI * radius; // ~251.3
-  const strokeDashoffset = circumference - (circumference * timeLeft) / totalDuration;
+  const strokeDashoffset = focusMode === 'timer'
+    ? circumference - (circumference * timeLeft) / totalDuration
+    : circumference - (circumference * (stopwatchTime % 60)) / 60;
+
+  const progressStrokeColor = focusMode === 'timer'
+    ? (mode === 'focus' ? 'var(--primary)' : 'var(--success)')
+    : '#3b82f6';
 
   return (
     <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -411,10 +553,28 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
         <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Boost your productivity using structured Pomodoro cycles</p>
       </div>
 
+      {/* Tab Switcher */}
+      <div className="focus-mode-switcher">
+        <button
+          className={`focus-mode-tab ${focusMode === 'timer' ? 'active-timer' : ''}`}
+          onClick={() => handleModeChange('timer')}
+          disabled={isActive || stopwatchIsActive}
+        >
+          Pomodoro Timer
+        </button>
+        <button
+          className={`focus-mode-tab ${focusMode === 'stopwatch' ? 'active-stopwatch' : ''}`}
+          onClick={() => handleModeChange('stopwatch')}
+          disabled={isActive || stopwatchIsActive}
+        >
+          Focus Stopwatch
+        </button>
+      </div>
+
       <div className="glass-card timer-container">
         
         {/* Task Selection Dropdown */}
-        {mode === 'focus' && !isActive && (
+        {focusMode === 'timer' && mode === 'focus' && !isActive && (
           <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>
               Associate Focus Task
@@ -431,7 +591,7 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
         )}
 
         {/* Selected Active Task info */}
-        {mode === 'focus' && isActive && (
+        {focusMode === 'timer' && mode === 'focus' && isActive && (
           <div style={{ fontSize: '14px', background: 'var(--primary-light)', color: 'var(--primary)', padding: '10px 18px', borderRadius: 'var(--radius-sm)', width: '100%', fontWeight: '600' }}>
             {associatedTaskId 
               ? `Focusing on: ${tasks.find(t => t.id.toString() === associatedTaskId)?.title || 'Task'}` 
@@ -441,9 +601,19 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
         )}
 
         {/* Break mode banner */}
-        {mode !== 'focus' && (
+        {focusMode === 'timer' && mode !== 'focus' && (
           <div style={{ fontSize: '14px', background: 'var(--success-light)', color: 'var(--success)', padding: '10px 18px', borderRadius: 'var(--radius-sm)', width: '100%', fontWeight: '600' }}>
             Relax! Enjoy your {mode === 'short_break' ? 'short' : 'long'} break.
+          </div>
+        )}
+
+        {/* Stopwatch status banner */}
+        {focusMode === 'stopwatch' && (
+          <div style={{ fontSize: '14px', background: stopwatchIsActive ? 'rgba(59, 130, 246, 0.15)' : 'var(--border)', color: stopwatchIsActive ? '#3b82f6' : 'var(--text-muted)', padding: '10px 18px', borderRadius: 'var(--radius-sm)', width: '100%', fontWeight: '600', textAlign: 'center' }}>
+            {stopwatchIsActive
+              ? (stopwatchIsPaused ? 'Stopwatch Paused' : 'Stopwatch Active')
+              : 'Ready to track continuous focus session'
+            }
           </div>
         )}
 
@@ -453,63 +623,111 @@ export default function FocusTimer({ selectedTask, clearSelectedTask, onSessionC
             {/* Background Track Circle */}
             <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--border)" strokeWidth="3" />
             {/* Foreground Progress Circle */}
-            <circle cx="50" cy="50" r={radius} fill="none" stroke={mode === 'focus' ? 'var(--primary)' : 'var(--success)'} strokeWidth="3" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s linear' }} />
+            <circle cx="50" cy="50" r={radius} fill="none" stroke={progressStrokeColor} strokeWidth="3" strokeDasharray={circumference} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ transition: 'stroke-dashoffset 1s linear' }} />
           </svg>
           
           <div style={{ zIndex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div className="timer-time-display">{timeDisplay}</div>
-            <div className="timer-status-text" style={{ color: mode === 'focus' ? 'var(--primary)' : 'var(--success)' }}>
-              {mode === 'focus' ? 'Focus Session' : mode === 'short_break' ? 'Short Break' : 'Long Break'}
+            <div className="timer-time-display">{focusMode === 'timer' ? timeDisplay : stopwatchTimeDisplay}</div>
+            <div className="timer-status-text" style={{ color: progressStrokeColor }}>
+              {focusMode === 'timer'
+                ? (mode === 'focus' ? 'Focus Session' : mode === 'short_break' ? 'Short Break' : 'Long Break')
+                : 'Stopwatch'}
             </div>
           </div>
         </div>
 
-        {/* Timer Control Actions */}
+        {/* Controls */}
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', width: '100%' }}>
-          {!isActive ? (
-            <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px' }} onClick={handleStart}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              Start Focus
-            </button>
-          ) : isPaused ? (
-            <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px' }} onClick={handleStart}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              Resume
-            </button>
+          {focusMode === 'timer' ? (
+            <>
+              {!isActive ? (
+                <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px' }} onClick={handleStart}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Start Focus
+                </button>
+              ) : isPaused ? (
+                <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px' }} onClick={handleStart}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Resume
+                </button>
+              ) : (
+                <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px', backgroundColor: 'var(--text-muted)' }} onClick={handlePause}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="6" y="4" width="4" height="16" />
+                    <rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                  Pause
+                </button>
+              )}
+
+              {(isActive || isPaused || mode !== 'focus') && (
+                <button className="btn btn-secondary" style={{ padding: '12px 18px' }} onClick={handleSkip} title="Skip current state">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 4 15 12 5 20 5 4" />
+                    <line x1="19" y1="5" x2="19" y2="19" />
+                  </svg>
+                </button>
+              )}
+
+              <button className="btn btn-secondary" style={{ padding: '12px 18px' }} onClick={handleReset} title="Reset Timer">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                </svg>
+              </button>
+            </>
           ) : (
-            <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px', backgroundColor: 'var(--text-muted)' }} onClick={handlePause}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="6" y="4" width="4" height="16" />
-                <rect x="14" y="4" width="4" height="16" />
-              </svg>
-              Pause
-            </button>
-          )}
+            <>
+              {!stopwatchIsActive ? (
+                <button className="btn btn-primary" style={{ flexGrow: 1, padding: '12px', backgroundColor: '#3b82f6', boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)' }} onClick={handleStopwatchStart}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                  Start Stopwatch
+                </button>
+              ) : (
+                <>
+                  {!stopwatchIsPaused ? (
+                    <button className="btn btn-primary" style={{ flexGrow: 1.2, padding: '12px', backgroundColor: 'var(--text-muted)' }} onClick={handleStopwatchPause}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="6" y="4" width="4" height="16" />
+                        <rect x="14" y="4" width="4" height="16" />
+                      </svg>
+                      Pause
+                    </button>
+                  ) : (
+                    <button className="btn btn-primary" style={{ flexGrow: 1.2, padding: '12px', backgroundColor: '#3b82f6' }} onClick={handleStopwatchStart}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="5 3 19 12 5 21 5 3" />
+                      </svg>
+                      Resume
+                    </button>
+                  )}
+                  
+                  <button className="btn btn-danger" style={{ padding: '12px 18px', backgroundColor: '#ef4444' }} onClick={handleStopwatchStop} title="Stop and Save Session">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="4" y="4" width="16" height="16" />
+                    </svg>
+                  </button>
 
-          {(isActive || isPaused || mode !== 'focus') && (
-            <button className="btn btn-secondary" style={{ padding: '12px 18px' }} onClick={handleSkip} title="Skip current state">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polygon points="5 4 15 12 5 20 5 4" />
-                <line x1="19" y1="5" x2="19" y2="19" />
-              </svg>
-            </button>
+                  <button className="btn btn-secondary" style={{ padding: '12px 18px' }} onClick={handleStopwatchReset} title="Reset Stopwatch">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+                    </svg>
+                  </button>
+                </>
+              )}
+            </>
           )}
-
-          <button className="btn btn-secondary" style={{ padding: '12px 18px' }} onClick={handleReset} title="Reset Timer">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
-            </svg>
-          </button>
         </div>
 
       </div>
 
       {/* Manual Configuration inputs */}
-      {!isActive && (
+      {focusMode === 'timer' && !isActive && (
         <div className="glass-card" style={{ padding: '20px 24px', maxWidth: '480px', margin: '0 auto', width: '100%' }}>
           <h4 style={{ fontSize: '14px', marginBottom: '16px', fontWeight: '700', textAlign: 'left' }}>Custom Interval Lengths</h4>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>

@@ -38,14 +38,26 @@ export async function completePomodoroSession(req: AuthenticatedRequest, res: Re
     }
 
     const { id } = req.params;
+    const { duration_minutes } = req.body;
 
-    const result = await query(
-      `UPDATE pomodoro_sessions SET
-        status = 'completed', ended_at = CURRENT_TIMESTAMP
-       WHERE id = $1 AND user_id = $2
-       RETURNING *`,
-      [id, req.user.id]
-    );
+    let result;
+    if (typeof duration_minutes === 'number') {
+      result = await query(
+        `UPDATE pomodoro_sessions SET
+          status = 'completed', ended_at = CURRENT_TIMESTAMP, duration_minutes = $1
+         WHERE id = $2 AND user_id = $3
+         RETURNING *`,
+        [duration_minutes, id, req.user.id]
+      );
+    } else {
+      result = await query(
+        `UPDATE pomodoro_sessions SET
+          status = 'completed', ended_at = CURRENT_TIMESTAMP
+         WHERE id = $1 AND user_id = $2
+         RETURNING *`,
+        [id, req.user.id]
+      );
+    }
 
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Session not found' });
