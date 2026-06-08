@@ -4,11 +4,11 @@ import Auth from './components/Auth';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import TaskList from './components/TaskList';
-
 import FocusTimer from './components/FocusTimer';
 import SessionHistory from './components/SessionHistory';
 import ProfileSettings from './components/ProfileSettings';
 import SubjectsManager from './components/SubjectsManager';
+import EmailVerification from './components/EmailVerification';
 import { getUserProfile, getPreferences, getTasks, updatePreferences } from './api/client';
 
 type ViewType = 'dashboard' | 'tasks' | 'subjects' | 'timer' | 'history' | 'settings';
@@ -59,6 +59,12 @@ function App() {
     try {
       const data = await getUserProfile();
       setUser(data.user);
+      
+      // If the user is unverified, don't attempt to load preferences or check deadlines
+      if (!data.user.is_verified) {
+        setLoading(false);
+        return;
+      }
       
       // Load theme preference
       const prefData = await getPreferences();
@@ -197,6 +203,18 @@ function App() {
 
   if (!token) {
     return <Auth onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  if (user && !user.is_verified) {
+    return (
+      <EmailVerification
+        userEmail={user.email}
+        onVerificationSuccess={() => {
+          setUser({ ...user, is_verified: true });
+        }}
+        onLogout={handleLogout}
+      />
+    );
   }
 
   return (

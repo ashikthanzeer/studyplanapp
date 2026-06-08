@@ -5,7 +5,11 @@ import {
   getPreferences,
   updatePreferences,
   getGoals,
-  updateGoals
+  updateGoals,
+  requestEmailChange,
+  confirmEmailChange,
+  requestPasswordChange,
+  confirmPasswordChange
 } from '../api/client';
 
 interface ProfileSettingsProps {
@@ -33,6 +37,15 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+
+  // Tab 1: Account Credentials States
+  const [newEmail, setNewEmail] = useState('');
+  const [emailOtp, setEmailOtp] = useState('');
+  const [emailStep, setEmailStep] = useState<'idle' | 'otp'>('idle');
+
+  const [passwordOtp, setPasswordOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordStep, setPasswordStep] = useState<'idle' | 'otp'>('idle');
   
   // Tab 2: Preferences State
   const [pomodoroDuration, setPomodoroDuration] = useState(25);
@@ -136,6 +149,78 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
     }
   }
 
+  // Email change handlers
+  async function handleEmailChangeRequest(e: React.FormEvent) {
+    e.preventDefault();
+    const normalizedNewEmail = newEmail.toLowerCase().trim();
+    if (!normalizedNewEmail) return;
+    setLoading(true);
+    try {
+      const res = await requestEmailChange({ newEmail: normalizedNewEmail });
+      flashMessage(res.message || 'Verification code sent to your new email.');
+      setEmailStep('otp');
+    } catch (err: any) {
+      flashError(err.response?.data?.error || 'Failed to request email change.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleEmailChangeConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    const normalizedNewEmail = newEmail.toLowerCase().trim();
+    if (!emailOtp || !normalizedNewEmail) return;
+    setLoading(true);
+    try {
+      const res = await confirmEmailChange({ code: emailOtp, newEmail: normalizedNewEmail });
+      flashMessage(res.message || 'Email updated successfully!');
+      setEmailStep('idle');
+      setNewEmail('');
+      setEmailOtp('');
+      refreshUserData();
+    } catch (err: any) {
+      flashError(err.response?.data?.error || 'Invalid or expired code.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Password change handlers
+  async function handlePasswordChangeRequest(e: React.FormEvent) {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      const res = await requestPasswordChange();
+      flashMessage(res.message || 'Verification code sent to your current email.');
+      setPasswordStep('otp');
+    } catch (err: any) {
+      flashError(err.response?.data?.error || 'Failed to request password change.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handlePasswordChangeConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    if (!passwordOtp || !newPassword) return;
+    if (newPassword.length < 8) {
+      flashError('Password must be at least 8 characters long.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await confirmPasswordChange({ code: passwordOtp, newPassword });
+      flashMessage(res.message || 'Password updated successfully!');
+      setPasswordStep('idle');
+      setNewPassword('');
+      setPasswordOtp('');
+    } catch (err: any) {
+      flashError(err.response?.data?.error || 'Invalid or expired code.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Preferences Save
   async function handlePreferencesSave(e: React.FormEvent) {
     e.preventDefault();
@@ -225,34 +310,131 @@ export default function ProfileSettings({ onThemeChange, currentTheme, refreshUs
           
           {/* TAB 1: Profile Settings */}
           {activeTab === 'profile' && (
-            <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-              <h3 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', textAlign: 'left' }}>
-                Profile Information
-              </h3>
-              
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Choose Avatar</label>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-                  {avatars.map((url, idx) => (
-                    <img key={idx} src={url} alt="Avatar option" onClick={() => setAvatarUrl(url)} style={{ width: '48px', height: '48px', borderRadius: '50%', border: avatarUrl === url ? '3px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: '0.2s', padding: '2px', background: 'rgba(0,0,0,0.02)' }} />
-                  ))}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+              <form onSubmit={handleProfileSave} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <h3 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', textAlign: 'left' }}>
+                  Profile Information
+                </h3>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Choose Avatar</label>
+                  <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                    {avatars.map((url, idx) => (
+                      <img key={idx} src={url} alt="Avatar option" onClick={() => setAvatarUrl(url)} style={{ width: '48px', height: '48px', borderRadius: '50%', border: avatarUrl === url ? '3px solid var(--primary)' : '2px solid transparent', cursor: 'pointer', transition: '0.2s', padding: '2px', background: 'rgba(0,0,0,0.02)' }} />
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Display Name</label>
+                  <input type="text" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Bio / Description</label>
+                  <textarea className="form-input" style={{ minHeight: '80px', resize: 'vertical' }} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="University of California, Biology Major..." />
+                </div>
+
+                <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end' }} disabled={loading}>
+                  Save Changes
+                </button>
+              </form>
+
+              <hr style={{ border: '0', borderTop: '1px solid var(--border)', margin: '10px 0' }} />
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <h3 style={{ fontSize: '18px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', textAlign: 'left' }}>
+                  Account Credentials
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', flexWrap: 'wrap' }} className="credentials-settings-grid">
+                  {/* Change Email Panel */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-heading)' }}>Change Email Address</h4>
+                    {emailStep === 'idle' ? (
+                      <form onSubmit={handleEmailChangeRequest} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <input
+                          type="email"
+                          className="form-input"
+                          placeholder="Enter new email address"
+                          value={newEmail}
+                          onChange={(e) => setNewEmail(e.target.value)}
+                          required
+                        />
+                        <button type="submit" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px' }} disabled={loading}>
+                          Request Email Change
+                        </button>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleEmailChangeConfirm} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Enter the code sent to {newEmail}:</p>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          className="form-input"
+                          placeholder="Verification Code"
+                          value={emailOtp}
+                          onChange={(e) => setEmailOtp(e.target.value.replace(/\D/g, ''))}
+                          required
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: '1', padding: '8px' }} disabled={loading}>
+                            Confirm
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: '1', padding: '8px' }} onClick={() => { setEmailStep('idle'); setEmailOtp(''); }} disabled={loading}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+
+                  {/* Change Password Panel */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', textAlign: 'left' }}>
+                    <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-heading)' }}>Change Password</h4>
+                    {passwordStep === 'idle' ? (
+                      <div>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                          Request an OTP verification code to reset your account password.
+                        </p>
+                        <button type="button" className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '13px', width: '100%' }} onClick={handlePasswordChangeRequest} disabled={loading}>
+                          Request Password Reset
+                        </button>
+                      </div>
+                    ) : (
+                      <form onSubmit={handlePasswordChangeConfirm} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Enter the code sent to your registered email:</p>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          className="form-input"
+                          placeholder="Verification Code"
+                          value={passwordOtp}
+                          onChange={(e) => setPasswordOtp(e.target.value.replace(/\D/g, ''))}
+                          required
+                        />
+                        <input
+                          type="password"
+                          className="form-input"
+                          placeholder="Enter new password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          required
+                        />
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button type="submit" className="btn btn-primary" style={{ flex: '1', padding: '8px' }} disabled={loading}>
+                            Confirm
+                          </button>
+                          <button type="button" className="btn btn-secondary" style={{ flex: '1', padding: '8px' }} onClick={() => { setPasswordStep('idle'); setPasswordOtp(''); setNewPassword(''); }} disabled={loading}>
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Display Name</label>
-                <input type="text" className="form-input" value={name} onChange={(e) => setName(e.target.value)} required />
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <label style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-heading)', textAlign: 'left' }}>Bio / Description</label>
-                <textarea className="form-input" style={{ minHeight: '80px', resize: 'vertical' }} value={bio} onChange={(e) => setBio(e.target.value)} placeholder="University of California, Biology Major..." />
-              </div>
-
-              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end' }} disabled={loading}>
-                Save Changes
-              </button>
-            </form>
+            </div>
           )}
 
           {/* TAB 2: Preferences Settings */}

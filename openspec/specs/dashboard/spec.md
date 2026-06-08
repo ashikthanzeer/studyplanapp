@@ -37,3 +37,10 @@ The system SHALL display the user's active level rank (e.g., Bronze, Silver, Gol
 - **WHEN** the user views the dashboard
 - **THEN** the system displays their current level rank and a visual gallery of all badges, where earned badges show counts for duplicates and unearned badges are displayed with reduced brightness and a locked sign
 
+### Requirement: Dashboard requires email verification
+The system SHALL restrict access to the dashboard view to users whose email addresses have been successfully verified.
+
+#### Scenario: Unverified user redirected from dashboard
+- **WHEN** an unverified user attempts to access the dashboard url or view
+- **THEN** the system SHALL redirect the user to the OTP verification screen.
+

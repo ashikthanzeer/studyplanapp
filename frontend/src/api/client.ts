@@ -152,6 +152,45 @@ export async function getPomodoroStats(params?: any) {
   return res.data;
 }
 
+// Verification & OTP endpoints
+export async function verifyEmail(payload: { code: string }) {
+  const res = await client.post('/auth/verify-email', payload);
+  return res.data;
+}
 
+export async function resendVerification() {
+  const res = await client.post('/auth/resend-verification');
+  return res.data;
+}
+
+export async function forgotPassword(payload: { email: string }) {
+  const res = await client.post('/auth/forgot-password', payload);
+  return res.data;
+}
+
+export async function resetPassword(payload: any) {
+  const res = await client.post('/auth/reset-password', payload);
+  return res.data;
+}
+
+export async function requestEmailChange(payload: { newEmail: string }) {
+  const res = await client.post('/auth/change-email/request', payload);
+  return res.data;
+}
+
+export async function confirmEmailChange(payload: { code: string; newEmail: string }) {
+  const res = await client.post('/auth/change-email/confirm', payload);
+  return res.data;
+}
+
+export async function requestPasswordChange() {
+  const res = await client.post('/auth/change-password/request');
+  return res.data;
+}
+
+export async function confirmPasswordChange(payload: { code: string; newPassword: any }) {
+  const res = await client.post('/auth/change-password/confirm', payload);
+  return res.data;
+}
 
 export default client;

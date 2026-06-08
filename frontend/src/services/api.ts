@@ -47,7 +47,16 @@ class ApiService {
       if (response.status === 401) {
         this.clearToken();
       }
-      throw new Error(`API Error: ${response.statusText}`);
+      let errorMsg = `API Error: ${response.statusText}`;
+      try {
+        const errJson = await response.json();
+        if (errJson && errJson.error) {
+          errorMsg = errJson.error;
+        }
+      } catch (e) {
+        // ignore JSON parsing errors
+      }
+      throw new Error(errorMsg);
     }
 
     return response.json();
@@ -163,6 +172,39 @@ class ApiService {
 
   updatePreferences(preferences: any) {
     return this.request('/profile/preferences', 'PUT', preferences);
+  }
+
+  // OTP & Verification endpoints
+  verifyEmail(code: string) {
+    return this.request('/auth/verify-email', 'POST', { code });
+  }
+
+  resendVerification() {
+    return this.request('/auth/resend-verification', 'POST');
+  }
+
+  forgotPassword(email: string) {
+    return this.request('/auth/forgot-password', 'POST', { email });
+  }
+
+  resetPassword(data: any) {
+    return this.request('/auth/reset-password', 'POST', data);
+  }
+
+  requestEmailChange(newEmail: string) {
+    return this.request('/auth/change-email/request', 'POST', { newEmail });
+  }
+
+  confirmEmailChange(code: string, newEmail: string) {
+    return this.request('/auth/change-email/confirm', 'POST', { code, newEmail });
+  }
+
+  requestPasswordChange() {
+    return this.request('/auth/change-password/request', 'POST');
+  }
+
+  confirmPasswordChange(code: string, newPassword: string) {
+    return this.request('/auth/change-password/confirm', 'POST', { code, newPassword });
   }
 }
 
