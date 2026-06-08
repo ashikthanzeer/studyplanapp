@@ -221,7 +221,11 @@ export async function resendVerificationEmail(req: AuthenticatedRequest, res: Re
     }
 
     const otp = await generateAndSaveOTP(req.user.id, 'email_verification');
-    await sendOTPEmail(req.user.email, otp, 'email_verification');
+    try {
+      await sendOTPEmail(req.user.email, otp, 'email_verification');
+    } catch (emailErr) {
+      console.error('Failed to send verification OTP email in resend:', emailErr);
+    }
 
     res.json({ message: 'Verification code resent successfully' });
   } catch (error) {
@@ -243,7 +247,11 @@ export async function forgotPassword(req: AuthenticatedRequest, res: Response) {
     if (userRes.rows.length > 0) {
       const user = userRes.rows[0];
       const otp = await generateAndSaveOTP(user.id, 'forgot_password');
-      await sendOTPEmail(email, otp, 'forgot_password');
+      try {
+        await sendOTPEmail(email, otp, 'forgot_password');
+      } catch (emailErr) {
+        console.error('Failed to send forgot password OTP email:', emailErr);
+      }
     }
 
     // Return generic success to prevent user enumeration
@@ -308,7 +316,11 @@ export async function requestEmailChange(req: AuthenticatedRequest, res: Respons
     }
 
     const otp = await generateAndSaveOTP(req.user.id, 'change_email');
-    await sendOTPEmail(newEmail, otp, 'change_email');
+    try {
+      await sendOTPEmail(newEmail, otp, 'change_email');
+    } catch (emailErr) {
+      console.error('Failed to send email change OTP email:', emailErr);
+    }
 
     res.json({ message: 'Verification code sent to your new email address.' });
   } catch (error) {
@@ -357,7 +369,11 @@ export async function requestPasswordChange(req: AuthenticatedRequest, res: Resp
     }
 
     const otp = await generateAndSaveOTP(req.user.id, 'forgot_password');
-    await sendOTPEmail(req.user.email, otp, 'forgot_password');
+    try {
+      await sendOTPEmail(req.user.email, otp, 'forgot_password');
+    } catch (emailErr) {
+      console.error('Failed to send password change OTP email:', emailErr);
+    }
 
     res.json({ message: 'Verification code sent to your registered email address.' });
   } catch (error) {
