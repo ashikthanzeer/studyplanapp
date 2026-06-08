@@ -1,0 +1,240 @@
+import { Response } from 'express';
+import { query, getClient } from '../db/connection';
+import { AuthenticatedRequest } from '../middleware/errorHandler';
+
+export async function getProfile(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await query(
+      `SELECT id, user_id, name, avatar_url, bio, created_at, updated_at
+       FROM student_profiles WHERE user_id = $1`,
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    res.json({ profile: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching profile:', error);
+    res.status(500).json({ error: 'Failed to fetch profile' });
+  }
+}
+
+export async function updateProfile(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { name, avatar_url, bio } = req.body;
+
+    const result = await query(
+      `UPDATE student_profiles SET name = COALESCE($1, name),
+        avatar_url = COALESCE($2, avatar_url),
+        bio = COALESCE($3, bio),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $4 RETURNING *`,
+      [name, avatar_url, bio, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Profile not found' });
+    }
+
+    res.json({ message: 'Profile updated successfully', profile: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+}
+
+export async function getPreferences(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await query(
+      'SELECT * FROM user_preferences WHERE user_id = $1',
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Preferences not found' });
+    }
+
+    res.json({ preferences: result.rows[0] });
+  } catch (error) {
+    console.error('Error fetching preferences:', error);
+    res.status(500).json({ error: 'Failed to fetch preferences' });
+  }
+}
+
+export async function updatePreferences(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const {
+      pomodoro_duration,
+      break_duration,
+      notification_enabled,
+      desktop_notifications,
+      quiet_hours_start,
+      quiet_hours_end,
+      theme,
+      task_view_preference,
+    } = req.body;
+
+    const result = await query(
+      `UPDATE user_preferences SET
+        pomodoro_duration = COALESCE($1, pomodoro_duration),
+        break_duration = COALESCE($2, break_duration),
+        notification_enabled = COALESCE($3, notification_enabled),
+        desktop_notifications = COALESCE($4, desktop_notifications),
+        quiet_hours_start = COALESCE($5, quiet_hours_start),
+        quiet_hours_end = COALESCE($6, quiet_hours_end),
+        theme = COALESCE($7, theme),
+        task_view_preference = COALESCE($8, task_view_preference),
+        updated_at = CURRENT_TIMESTAMP
+       WHERE user_id = $9 RETURNING *`,
+      [
+        pomodoro_duration,
+        break_duration,
+        notification_enabled,
+        desktop_notifications,
+        quiet_hours_start,
+        quiet_hours_end,
+        theme,
+        task_view_preference,
+        req.user.id,
+      ]
+    );
+
+    res.json({ message: 'Preferences updated successfully', preferences: result.rows[0] });
+  } catch (error) {
+    console.error('Error updating preferences:', error);
+    res.status(500).json({ error: 'Failed to update preferences' });
+  }
+}
+
+export async function getGamification(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    // 1. Get streak details
+    const streakResult = await query(
+      'SELECT current_streak, max_streak, last_activity_date FROM user_streaks WHERE user_id = $1',
+      [req.user.id]
+    );
+    
+    const streak = streakResult.rows[0] || { current_streak: 0, max_streak: 0, last_activity_date: null };
+
+    // 2. Get badges details
+    const badgesResult = await query(
+      'SELECT badge_name, count, last_earned_at FROM user_badges WHERE user_id = $1 ORDER BY last_earned_at DESC',
+      [req.user.id]
+    );
+
+    const badges = badgesResult.rows;
+
+    // Calculate total badges earned (sum of all counts)
+    const totalBadgesEarned = badges.reduce((sum: number, badge: any) => sum + (parseInt(badge.count) || 1), 0);
+
+    // Calculate rank level
+    let level = 'Bronze';
+    if (totalBadgesEarned >= 20) {
+      level = 'Diamond';
+    } else if (totalBadgesEarned >= 11) {
+      level = 'Platinum';
+    } else if (totalBadgesEarned >= 6) {
+      level = 'Gold';
+    } else if (totalBadgesEarned >= 3) {
+      level = 'Silver';
+    }
+
+    res.json({
+      streak: streak.current_streak,
+      maxStreak: streak.max_streak,
+      lastActivityDate: streak.last_activity_date,
+      badges,
+      totalBadges: totalBadgesEarned,
+      level,
+    });
+  } catch (error) {
+    console.error('Error fetching gamification stats:', error);
+    res.status(500).json({ error: 'Failed to fetch gamification stats' });
+  }
+}
+
+export async function getGoals(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await query(
+      'SELECT * FROM study_goals WHERE user_id = $1 ORDER BY id ASC',
+      [req.user.id]
+    );
+
+    res.json({ goals: result.rows });
+  } catch (error) {
+    console.error('Error fetching goals:', error);
+    res.status(500).json({ error: 'Failed to fetch goals' });
+  }
+}
+
+export async function updateGoals(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const { goals } = req.body;
+    
+    if (!Array.isArray(goals)) {
+      return res.status(400).json({ error: 'Goals must be an array' });
+    }
+
+    const dbClient = await getClient();
+    try {
+      await dbClient.query('BEGIN');
+      
+      for (const goal of goals) {
+        if (goal.id) {
+          await dbClient.query(
+            'UPDATE study_goals SET target_hours = $1, title = COALESCE($2, title), period = COALESCE($3, period), updated_at = CURRENT_TIMESTAMP WHERE id = $4 AND user_id = $5',
+            [goal.target_hours, goal.title, goal.period, goal.id, req.user.id]
+          );
+        } else {
+          await dbClient.query(
+            'INSERT INTO study_goals (user_id, title, target_hours, period) VALUES ($1, $2, $3, $4)',
+            [req.user.id, goal.title || 'Target', goal.target_hours, goal.period || 'weekly']
+          );
+        }
+      }
+      
+      await dbClient.query('COMMIT');
+      
+      const result = await query('SELECT * FROM study_goals WHERE user_id = $1 ORDER BY id ASC', [req.user.id]);
+      res.json({ message: 'Goals updated successfully', goals: result.rows });
+    } catch (error) {
+      await dbClient.query('ROLLBACK');
+      throw error;
+    } finally {
+      dbClient.release();
+    }
+  } catch (error) {
+    console.error('Error updating goals:', error);
+    res.status(500).json({ error: 'Failed to update goals' });
+  }
+}
