@@ -83,28 +83,40 @@ export async function sendOTPEmail(email: string, otp: string, purpose: 'email_v
   if (apiKey) {
     const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
     console.log(`[Resend Email] Attempting to send email via Resend API to: ${email}`);
-    const response = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        from: fromEmail,
-        to: email,
-        subject: subject,
-        html: htmlContent,
-      }),
-    });
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log(`[Resend Email] Aborting email request to: ${email} due to timeout`);
+      controller.abort();
+    }, 5000); // 5 seconds timeout
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Resend API failed with status ${response.status}: ${errorText}`);
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: fromEmail,
+          to: email,
+          subject: subject,
+          html: htmlContent,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Resend API failed with status ${response.status}: ${errorText}`);
+      }
+
+      const resData: any = await response.json();
+      console.log(`[Resend Email Sent] To: ${email}, OTP: ${otp}, Resend ID: ${resData.id}`);
+      return;
+    } finally {
+      clearTimeout(timeoutId);
     }
-
-    const resData: any = await response.json();
-    console.log(`[Resend Email Sent] To: ${email}, OTP: ${otp}, Resend ID: ${resData.id}`);
-    return;
   }
 
   // Fallback to standard SMTP / Ethereal
