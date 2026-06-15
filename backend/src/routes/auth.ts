@@ -11,6 +11,7 @@ import {
   confirmEmailChange,
   requestPasswordChange,
   confirmPasswordChange,
+  registerPushToken,
 } from '../controllers/authController';
 import { authenticateToken } from '../middleware/auth';
 
@@ -58,5 +59,8 @@ router.post('/logout', (req, res) => {
 router.post('/refresh-token', authenticateToken, (req, res) => {
   res.json({ message: 'Token refresh endpoint' });
 });
+
+// POST /api/auth/register-push-token
+router.post('/register-push-token', authenticateToken, registerPushToken);
 
 export default router;

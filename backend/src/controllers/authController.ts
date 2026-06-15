@@ -421,3 +421,27 @@ export async function confirmPasswordChange(req: AuthenticatedRequest, res: Resp
     res.status(500).json({ error: 'Failed to update password' });
   }
 }
+
+export async function registerPushToken(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Push token is required' });
+    }
+
+    await query(
+      `INSERT INTO user_push_tokens (user_id, push_token) 
+       VALUES ($1, $2) 
+       ON CONFLICT (push_token) DO UPDATE SET user_id = EXCLUDED.user_id`,
+      [req.user.id, token]
+    );
+
+    res.json({ success: true, message: 'Push token registered successfully' });
+  } catch (error) {
+    console.error('Register push token error:', error);
+    res.status(500).json({ error: 'Failed to register push token' });
+  }
+}
