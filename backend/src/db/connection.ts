@@ -47,16 +47,33 @@ pool.on('error', (err: Error) => {
 });
 
 export async function query(text: string, params?: any[]) {
-  const start = Date.now();
-  try {
-    const result = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: result.rowCount });
-    return result;
-  } catch (error) {
-    console.error('Database query error:', error);
-    throw error;
+  const maxAttempts = 3;
+  let delay = 500; // ms
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const start = Date.now();
+    try {
+      const result = await pool.query(text, params);
+      const duration = Date.now() - start;
+      console.log('Executed query', { text, duration, rows: result.rowCount, attempt });
+      return result;
+    } catch (error: any) {
+      const duration = Date.now() - start;
+      console.error(`Database query error (attempt ${attempt}/${maxAttempts}, duration ${duration}ms):`, error);
+
+      const errCode = error?.code || '';
+      const isSyntaxOrConstraint = errCode.startsWith('23') || errCode.startsWith('42');
+
+      if (isSyntaxOrConstraint || attempt === maxAttempts) {
+        throw error;
+      }
+
+      console.warn(`Retrying query in ${delay}ms...`);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+      delay *= 2;
+    }
   }
+  throw new Error('Database query failed after max retries');
 }
 
 export async function getClient(): Promise<PoolClient> {

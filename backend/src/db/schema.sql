@@ -76,6 +76,28 @@ CREATE TABLE pomodoro_sessions (
   FOREIGN KEY (task_id) REFERENCES tasks(id)
 );
 
+-- User Streaks Table (used by gamification service)
+CREATE TABLE IF NOT EXISTS user_streaks (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE NOT NULL,
+  current_streak INTEGER DEFAULT 0,
+  max_streak INTEGER DEFAULT 0,
+  last_activity_date DATE,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- User Badges Table (used by gamification service)
+CREATE TABLE IF NOT EXISTS user_badges (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  badge_name VARCHAR(100) NOT NULL,
+  count INTEGER DEFAULT 1,
+  last_earned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  UNIQUE(user_id, badge_name)
+);
+
 -- User Preferences Table
 CREATE TABLE user_preferences (
   id SERIAL PRIMARY KEY,

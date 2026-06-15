@@ -214,15 +214,19 @@ export async function resendVerificationEmail(req: AuthenticatedRequest, res: Re
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    // Check if user is already verified
-    const userRes = await query('SELECT is_verified FROM users WHERE id = $1', [req.user.id]);
-    if (userRes.rows.length > 0 && userRes.rows[0].is_verified) {
+    // Check if user is already verified and get latest email
+    const userRes = await query('SELECT is_verified, email FROM users WHERE id = $1', [req.user.id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (userRes.rows[0].is_verified) {
       return res.status(400).json({ error: 'Email is already verified' });
     }
 
+    const currentEmail = userRes.rows[0].email;
     const otp = await generateAndSaveOTP(req.user.id, 'email_verification');
     try {
-      await sendOTPEmail(req.user.email, otp, 'email_verification');
+      await sendOTPEmail(currentEmail, otp, 'email_verification');
     } catch (emailErr) {
       console.error('Failed to send verification OTP email in resend:', emailErr);
     }
@@ -355,7 +359,8 @@ export async function confirmEmailChange(req: AuthenticatedRequest, res: Respons
 
     await query('UPDATE users SET email = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [newEmail, req.user.id]);
 
-    res.json({ message: 'Email address updated successfully', email: newEmail });
+    const token = generateToken(req.user.id, newEmail);
+    res.json({ message: 'Email address updated successfully', email: newEmail, token });
   } catch (error) {
     console.error('Confirm email change error:', error);
     res.status(500).json({ error: 'Failed to update email address' });
@@ -368,9 +373,15 @@ export async function requestPasswordChange(req: AuthenticatedRequest, res: Resp
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
+    const userRes = await query('SELECT email FROM users WHERE id = $1', [req.user.id]);
+    if (userRes.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const currentEmail = userRes.rows[0].email;
+
     const otp = await generateAndSaveOTP(req.user.id, 'forgot_password');
     try {
-      await sendOTPEmail(req.user.email, otp, 'forgot_password');
+      await sendOTPEmail(currentEmail, otp, 'forgot_password');
     } catch (emailErr) {
       console.error('Failed to send password change OTP email:', emailErr);
     }

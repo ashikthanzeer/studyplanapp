@@ -25,8 +25,13 @@ export async function createPomodoroSession(req: AuthenticatedRequest, res: Resp
     );
 
     res.status(201).json({ message: 'Session started', session: result.rows[0] });
-  } catch (error) {
-    console.error('Error creating session:', error);
+  } catch (error: any) {
+    console.error('Error creating session:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+    });
     res.status(500).json({ error: 'Failed to start session' });
   }
 }
@@ -39,6 +44,11 @@ export async function completePomodoroSession(req: AuthenticatedRequest, res: Re
 
     const { id } = req.params;
     const { duration_minutes } = req.body;
+
+    // Validate session ID is numeric
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ error: 'Invalid session ID: must be a number' });
+    }
 
     let result;
     if (typeof duration_minutes === 'number') {
@@ -69,8 +79,15 @@ export async function completePomodoroSession(req: AuthenticatedRequest, res: Re
     });
 
     res.json({ message: 'Session completed', session: result.rows[0] });
-  } catch (error) {
-    console.error('Error completing session:', error);
+  } catch (error: any) {
+    console.error('Error completing session:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+      sessionId: req.params.id,
+      userId: req.user?.id,
+    });
     res.status(500).json({ error: 'Failed to complete session' });
   }
 }
@@ -82,6 +99,11 @@ export async function abandonPomodoroSession(req: AuthenticatedRequest, res: Res
     }
 
     const { id } = req.params;
+
+    // Validate session ID is numeric
+    if (!id || isNaN(Number(id))) {
+      return res.status(400).json({ error: 'Invalid session ID: must be a number' });
+    }
 
     const result = await query(
       `UPDATE pomodoro_sessions SET
@@ -96,8 +118,15 @@ export async function abandonPomodoroSession(req: AuthenticatedRequest, res: Res
     }
 
     res.json({ message: 'Session abandoned', session: result.rows[0] });
-  } catch (error) {
-    console.error('Error abandoning session:', error);
+  } catch (error: any) {
+    console.error('Error abandoning session:', {
+      message: error.message,
+      code: error.code,
+      detail: error.detail,
+      stack: error.stack,
+      sessionId: req.params.id,
+      userId: req.user?.id,
+    });
     res.status(500).json({ error: 'Failed to abandon session' });
   }
 }
