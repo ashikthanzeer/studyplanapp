@@ -102,7 +102,7 @@ export async function deleteSubject(req: AuthenticatedRequest, res: Response) {
 
     // Reassign tasks from the deleted subject to "General"
     await query(
-      'UPDATE tasks SET subject_id = $1, updated_at = CURRENT_TIMESTAMP WHERE subject_id = $2 AND user_id = $3 AND deleted_at IS NULL',
+      'UPDATE tasks SET subject_id = $1, updated_at = CURRENT_TIMESTAMP WHERE subject_id = $2 AND user_id = $3',
       [generalId, id, req.user.id]
     );
 
