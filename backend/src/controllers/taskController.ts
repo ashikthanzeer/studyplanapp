@@ -10,7 +10,7 @@ export async function getTasks(req: AuthenticatedRequest, res: Response) {
 
     const { subject_id, priority, status, search } = req.query;
     let sql =
-      `SELECT t.*, s.name as subject_name FROM tasks t
+      `SELECT t.*, s.name as subject_name, s.color as subject_color FROM tasks t
        LEFT JOIN subjects s ON t.subject_id = s.id
        WHERE t.user_id = $1 AND t.deleted_at IS NULL`;
     const params: any[] = [req.user.id];

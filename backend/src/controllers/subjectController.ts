@@ -9,7 +9,7 @@ export async function getSubjects(req: AuthenticatedRequest, res: Response) {
     }
 
     const result = await query(
-      'SELECT id, name, color FROM subjects WHERE user_id = $1 ORDER BY name',
+      "SELECT id, name, color FROM subjects WHERE user_id = $1 ORDER BY (name = 'General') DESC, name ASC",
       [req.user.id]
     );
 
@@ -81,14 +81,36 @@ export async function deleteSubject(req: AuthenticatedRequest, res: Response) {
 
     const { id } = req.params;
 
-    const result = await query(
+    // Check subject exists and is not 'General'
+    const subjectCheck = await query(
+      'SELECT name FROM subjects WHERE id = $1 AND user_id = $2',
+      [id, req.user.id]
+    );
+    if (subjectCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'Subject not found' });
+    }
+    if (subjectCheck.rows[0].name === 'General') {
+      return res.status(400).json({ error: 'The "General" subject cannot be deleted.' });
+    }
+
+    // Get the user's "General" subject to reassign orphaned tasks
+    const generalRes = await query(
+      "SELECT id FROM subjects WHERE user_id = $1 AND name = 'General'",
+      [req.user.id]
+    );
+    const generalId = generalRes.rows.length > 0 ? generalRes.rows[0].id : null;
+
+    // Reassign tasks from the deleted subject to "General"
+    await query(
+      'UPDATE tasks SET subject_id = $1, updated_at = CURRENT_TIMESTAMP WHERE subject_id = $2 AND user_id = $3 AND deleted_at IS NULL',
+      [generalId, id, req.user.id]
+    );
+
+    // Now safe to delete
+    await query(
       'DELETE FROM subjects WHERE id = $1 AND user_id = $2',
       [id, req.user.id]
     );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Subject not found' });
-    }
 
     res.json({ message: 'Subject deleted' });
   } catch (error) {

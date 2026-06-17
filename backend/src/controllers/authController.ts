@@ -66,6 +66,12 @@ export async function register(
         [user.id]
       );
 
+      // Create default "General" subject
+      await dbClient.query(
+        "INSERT INTO subjects (user_id, name, color) VALUES ($1, 'General', '#64748b')",
+        [user.id]
+      );
+
 
       await dbClient.query('COMMIT');
 
@@ -386,7 +392,15 @@ export async function requestPasswordChange(req: AuthenticatedRequest, res: Resp
       console.error('Failed to send password change OTP email:', emailErr);
     }
 
-    res.json({ message: 'Verification code sent to your registered email address.' });
+    // Mask email for display (e.g., "a***k@gmail.com")
+    const [localPart, domain] = currentEmail.split('@');
+    const masked = localPart.length > 2
+      ? localPart[0] + '***' + localPart[localPart.length - 1] + '@' + domain
+      : localPart[0] + '***@' + domain;
+    res.json({
+      message: `Verification code sent to ${masked}`,
+      masked_email: masked,
+    });
   } catch (error) {
     console.error('Request password change error:', error);
     res.status(500).json({ error: 'Failed to request password change' });
