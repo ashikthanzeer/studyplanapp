@@ -2,7 +2,7 @@
   "redirects": [
     {
       "source": "/download",
-      "destination": "https://github.com/ashikthanzeer/study-planner/releases/latest/download/study-planner.apk",
+      "destination": "https://github.com/ashikthanzeer/studyplanapp/releases/latest/download/study-planner.apk",
       "permanent": true
     }
   ]
