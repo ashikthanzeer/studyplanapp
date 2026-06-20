@@ -121,7 +121,7 @@ export default function Sidebar({ currentView, onViewChange, user, onLogout, isO
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Download button for Android */}
           <a 
-            href="/study-planner.apk"
+            href="https://github.com/ashikthanzeer/studyplanapp/releases/download/v1.0.6/study-planner.apk"
             download="study-planner.apk"
             className="android-download-btn"
           >
