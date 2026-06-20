@@ -236,7 +236,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
 
       {/* Download button for Android */}
       <a 
-        href="https://github.com/ashikthanzeer/studyplanapp/releases/download/v1.0.6/study-planner.apk"
+        href="/download"
         download="study-planner.apk"
         className="android-download-btn"
       >
